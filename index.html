@@ -750,6 +750,11 @@ details[open] summary{margin-bottom:10px}
 .opts{display:flex;flex-direction:column;font-size:13px}
 .opt{display:grid;grid-template-columns:22px 26px minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:4px}
 .opt:hover{background:var(--bg)}
+button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sub{display:grid;grid-template-columns:26px minmax(0,1fr) auto auto auto;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px dashed var(--line);align-items:center}
+.sub .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.sub .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub button{padding:0 6px;font-size:12px;line-height:18px}
 .opt.on{background:var(--sun-dim)}
 .opt .n{font:600 11px var(--f-mono);color:var(--muted)}
 .opt .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -770,7 +775,7 @@ a.btn:hover{border-color:var(--accent)}
   <div id="map"></div>
   <aside>
     <div class="sec">
-      <h1>Techos BESS <span style="font:500 11px var(--f-mono);color:var(--muted)">v0.4</span><small>Potencial FV en cubiertas industriales y dimensionado de contenedores de 5 MWh</small></h1>
+      <h1>Techos BESS <span style="font:500 11px var(--f-mono);color:var(--muted)">v0.5</span><small>Potencial FV en cubiertas industriales y dimensionado de contenedores de 5 MWh</small></h1>
       <div class="row">
         <input id="q" type="text" class="grow" placeholder="Polígono, municipio o dirección" value="Polígono Fuente del Jarro, Paterna">
         <button id="go">Buscar</button>
@@ -789,8 +794,8 @@ a.btn:hover{border-color:var(--accent)}
     </div>
 
     <div class="sec" id="detSec">
-      <h2>Ficha de cubierta</h2>
-      <div id="det"><p class="note">Toca una cubierta en el mapa, o una opción de la lista, para ver aquí su superficie, la potencia FV, los contenedores que admite y su ahorro.</p></div>
+      <div class="row" style="justify-content:space-between;align-items:center"><h2 id="detT">Ficha de cubierta</h2><button id="multi" aria-pressed="false" title="En teclado: Mayús + clic">Selección múltiple</button></div>
+      <div id="det"><p class="note">Toca una cubierta en el mapa, o una opción de la lista, para ver aquí su superficie, la potencia FV, los contenedores que admite y su ahorro. Con Mayús + clic sumas varias.</p></div>
     </div>
 
     <div class="sec">
@@ -883,15 +888,15 @@ function geoArea(ll){ // m², fórmula esférica
   return Math.abs(s*R*R/2);
 }
 
-let activeId=null;
+const act=new Set(); let multi=false;
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function styleFor(b){
   const base = b.sel ? {color:css('--sun'),weight:2,fillColor:css('--sun'),fillOpacity:.45,dashArray:null}
                      : {color:css('--cand'),weight:1.5,fillColor:css('--cand'),fillOpacity:.15,dashArray:'4 3'};
-  if(b.id===activeId) Object.assign(base,{color:css('--fg'),weight:3.5,fillOpacity:.6,dashArray:null});
+  if(act.has(b.id)) Object.assign(base,{color:css('--fg'),weight:3.5,fillOpacity:.6,dashArray:null});
   return base;
 }
-function restyle(){B.forEach(b=>{b.poly.setStyle(styleFor(b));const t=b.poly.getTooltip();if(t)t.getElement()?.classList.toggle('on',b.id===activeId);});}
+function restyle(){B.forEach(b=>{b.poly.setStyle(styleFor(b));const t=b.poly.getTooltip();if(t)t.getElement()?.classList.toggle('on',act.has(b.id));});}
 function syncRkVisibility(){map.getContainer().classList.toggle('hide-rk',map.getZoom()<15);}
 map.on('zoomend',syncRkVisibility);
 
@@ -993,7 +998,7 @@ out geom tags qt;`;
       const o={id,name:name.trim(),tags:el.tags,latlngs:ll,area,sel:true};
       o.poly=L.polygon(ll,styleFor(o)).addTo(layer);
       o.poly.bindTooltip('',{permanent:true,direction:'center',className:'rk',interactive:false});
-      o.poly.on('click',()=>showDetail(o.id,false));
+      o.poly.on('click',e=>showDetail(o.id,false,e.originalEvent.shiftKey||multi));
       B.set(id,o); added++;
     }
     setStatus(added
@@ -1050,7 +1055,7 @@ function recompute(){
   const MAX=150;
   $('list').innerHTML=ranked.length
     ? `<div class="opt hd"><span></span><span>#</span><span>Cubierta</span><span class="num">MWp</span><span class="num">Cont.</span><span class="num">k€/año</span></div>`
-      + ranked.slice(0,MAX).map(b=>`<div class="opt${b.id===activeId?' on':''}" data-id="${b.id}">
+      + ranked.slice(0,MAX).map(b=>`<div class="opt${act.has(b.id)?' on':''}" data-id="${b.id}">
           <input type="checkbox" ${b.sel?'checked':''} aria-label="Incluir en el total" data-chk="${b.id}">
           <span class="n">${b.rank}</span><span class="name">${esc(b.name)}</span>
           <span class="num">${nf(b.r.MWp,2)}</span><span class="num">${b.r.N}</span><span class="num">${nf(b.r.tot/1000)}</span></div>`).join('')
@@ -1061,20 +1066,36 @@ function recompute(){
   last={sel};
 }
 
-function showDetail(id,fly){
-  activeId=id; const b=B.get(id); if(!b) return;
-  if(fly) map.fitBounds(b.poly.getBounds(),{maxZoom:18,padding:[30,30]});
+function showDetail(id,fly,add){
+  if(!B.has(id)) return;
+  if(add){ act.has(id)?act.delete(id):act.add(id); }
+  else { act.clear(); act.add(id); }
+  if(fly&&act.size) map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]});
   recompute();
-  $('detSec').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+  if(!add) $('detSec').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
 }
+function unionBounds(){const bb=L.latLngBounds([]);act.forEach(id=>bb.extend(B.get(id).poly.getBounds()));return bb;}
 function renderDetail(){
-  const b=activeId&&B.get(activeId);
-  if(!b){$('det').innerHTML='<p class="note">Toca una cubierta en el mapa, o una opción de la lista, para ver aquí su superficie, la potencia FV, los contenedores que admite y su ahorro.</p>';return;}
-  const r=b.r, c=b.poly.getBounds().getCenter(), lat=c.lat.toFixed(6), lon=c.lng.toFixed(6), t=b.tags;
-  const addr=[t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
+  const list=[...act].map(id=>B.get(id)).filter(Boolean).sort((a,b)=>a.rank-b.rank);
+  if(!list.length){$('detT').textContent='Ficha de cubierta';$('det').innerHTML='<p class="note">Toca una cubierta en el mapa, o una opción de la lista, para ver aquí su superficie, la potencia FV, los contenedores que admite y su ahorro. Con Mayús + clic sumas varias.</p>';return;}
+  const one=list.length===1, b=list[0];
+  const r=calc(list.reduce((s,x)=>s+x.area,0));
+  const sumN=list.reduce((s,x)=>s+x.r.N,0);
+  const c=unionBounds().getCenter(), lat=c.lat.toFixed(6), lon=c.lng.toFixed(6);
+  let head;
+  if(one){
+    const t=b.tags, addr=[t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
+    head=`<div class="det-h"><b>${esc(b.name)}</b><span>Opción ${b.rank} de ${ranked.length} · edificio «${esc(t.building)}»${addr?' · '+esc(addr):''}</span></div>`;
+  }else{
+    head=`<div class="det-h"><b>${list.length} cubiertas sumadas</b><span>Calculadas como una sola instalación conjunta</span></div>
+    <div><div class="sub" style="color:var(--muted);font-size:11px"><span>#</span><span>Cubierta</span><span class="num">MWp</span><span class="num">Cont.</span><span></span></div>
+    ${list.map(x=>`<div class="sub"><span class="num" style="text-align:left">${x.rank}</span><span class="name">${esc(x.name)}</span><span class="num">${nf(x.r.MWp,2)}</span><span class="num">${x.r.N}</span><button data-rm="${x.id}" aria-label="Quitar de la suma">×</button></div>`).join('')}</div>`;
+  }
+  const allIn=list.every(x=>x.sel);
+  $('detT').textContent=one?'Ficha de cubierta':'Suma de cubiertas';
   $('det').innerHTML=`
   <div style="display:flex;flex-direction:column;gap:10px">
-    <div class="det-h"><b>${esc(b.name)}</b><span>Opción ${b.rank} de ${ranked.length} · edificio «${esc(t.building)}»${addr?' · '+esc(addr):''}</span></div>
+    ${head}
     <div class="kpis">
       <div class="kpi hero"><div><div class="v">${r.N}</div><div class="l">contenedores de ${nf(r.cap,1)} MWh</div></div><div class="boxes">${boxes(r.N,r.cap)}</div></div>
       <div class="kpi"><div class="v">${nf(r.MWp,2)}</div><div class="l">MWp instalables</div></div>
@@ -1096,6 +1117,7 @@ function renderDetail(){
       <div class="grp">Almacenamiento</div>
       <dt>Dimensionado teórico</dt><dd>${nf(r.raw,2)} cont.</dd>
       <dt>Contenedores propuestos</dt><dd>${r.N} × ${nf(r.cap,1)} MWh</dd>
+      ${one?'':`<dt>Suma de fichas individuales</dt><dd>${sumN} cont.</dd>`}
       <dt>Capacidad útil</dt><dd>${nf(r.N*r.usable,1)} MWh</dd>
       <dt>Excedente desplazado</dt><dd>${nf(r.pvShift)} MWh</dd>
       <dt>Energía en arbitraje</dt><dd>${nf(r.arbE)} MWh</dd>
@@ -1107,23 +1129,26 @@ function renderDetail(){
       <dt>CAPEX BESS</dt><dd>${nf(r.cB/1000)} k€</dd>
       <dt>CO₂ evitado</dt><dd>${nf(r.co2)} t/año</dd>
       <div class="grp">Ubicación</div>
-      <dt>Coordenadas</dt><dd>${lat}, ${lon}</dd>
+      <dt>${one?'Coordenadas':'Centro del conjunto'}</dt><dd>${lat}, ${lon}</dd>
     </dl>
     <div class="row">
-      <button id="detTog" class="${b.sel?'':'primary'}">${b.sel?'Quitar del total':'Añadir al total'}</button>
+      <button id="detTog" class="${allIn?'':'primary'}">${allIn?'Quitar del total':(one?'Añadir al total':'Añadir todas al total')}</button>
       <button id="detZoom">Centrar</button>
+      ${one?'':'<button id="detClr">Limpiar selección</button>'}
       <a class="btn" href="https://www.google.com/maps/search/?api=1&query=${lat},${lon}" target="_blank" rel="noopener">Google Maps</a>
-      <a class="btn" href="https://www.openstreetmap.org/way/${b.id.slice(1)}" target="_blank" rel="noopener">OSM</a>
+      ${one?`<a class="btn" href="https://www.openstreetmap.org/way/${b.id.slice(1)}" target="_blank" rel="noopener">OSM</a>`:''}
     </div>
   </div>`;
-  $('detTog').onclick=()=>{b.sel=!b.sel;recompute();};
-  $('detZoom').onclick=()=>map.fitBounds(b.poly.getBounds(),{maxZoom:18,padding:[30,30]});
+  $('detTog').onclick=()=>{list.forEach(x=>x.sel=!allIn);recompute();};
+  $('detZoom').onclick=()=>map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]});
+  if($('detClr')) $('detClr').onclick=()=>{act.clear();recompute();};
+  $('det').querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{act.delete(x.dataset.rm);recompute();});
 }
 
 $('list').addEventListener('click',e=>{
   const chk=e.target.closest('[data-chk]');
   if(chk){const b=B.get(chk.dataset.chk);b.sel=chk.checked;recompute();return;}
-  const d=e.target.closest('[data-id]'); if(d) showDetail(d.dataset.id,true);
+  const d=e.target.closest('[data-id]'); if(d) showDetail(d.dataset.id,!(e.shiftKey||multi),e.shiftKey||multi);
 });
 
 /* ---------- CSV ---------- */
@@ -1144,6 +1169,10 @@ $('all').onclick=()=>{B.forEach(b=>b.sel=true);recompute();};
 $('none').onclick=()=>{B.forEach(b=>b.sel=false);recompute();};
 document.querySelectorAll('.params input,.params select').forEach(i=>i.addEventListener('input',recompute));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',restyle);
+$('multi').onclick=()=>{multi=!multi;$('multi').setAttribute('aria-pressed',multi);};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&act.size&&!e.target.closest('input,select')){act.clear();recompute();}});
+// Evita que Mayús + arrastrar active el zoom por recuadro de Leaflet al hacer Mayús + clic
+map.boxZoom.disable();
 syncRkVisibility();
 recompute();
 </script>
