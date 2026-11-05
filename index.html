@@ -716,6 +716,7 @@ button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:va
 .opts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;font-size:13px}
 .opts-grid label{display:flex;flex-direction:column;gap:3px;color:var(--muted);font-size:12px}
 .opts-grid .full{grid-column:1/-1}
+.opts-grid label.chk{flex-direction:row;align-items:center;color:var(--fg);font-size:13px}
 .chk{display:flex;gap:8px;align-items:center;font-size:13px}
 .legend{display:flex;gap:6px 14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .legend b{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:5px}
@@ -782,7 +783,7 @@ details[open] summary{margin-bottom:10px}
   <div id="map"></div>
   <aside>
     <div class="sec">
-      <h1>Techos BESS <span class="ver">v1.1</span><small>Cubiertas industriales con fotovoltaica ya instalada y su potencial de almacenamiento en contenedores de 5 MWh</small></h1>
+      <h1>Techos BESS <span class="ver">v1.2</span><small>Cubiertas industriales con fotovoltaica ya instalada y su potencial de almacenamiento en contenedores de 5 MWh</small></h1>
       <div class="row">
         <input id="q" type="text" class="grow" placeholder="Polígono, municipio o dirección" value="Polígono Fuente del Jarro, Paterna">
         <button id="go">Buscar</button>
@@ -798,6 +799,7 @@ details[open] summary{margin-bottom:10px}
           </select>
         </label>
         <label>Superficie mínima de nave (m²)<input id="minA" type="number" value="1500" step="100"></label>
+        <label class="chk full"><input id="pClu" type="checkbox" checked> Buscar paneles en toda la ortofoto, aunque la nave no tenga huella en OSM</label>
         <label class="chk full"><input id="incl" type="checkbox" checked> Incluir edificios sin etiquetar dentro de suelo industrial</label>
         <label class="chk full"><input id="showAll" type="checkbox"> Mostrar también las naves sin FV</label>
         <label class="chk full"><input id="showDet" type="checkbox" checked> Pintar en el mapa los paneles detectados</label>
@@ -992,7 +994,7 @@ async function pickSources(lat,lng){
   return out;
 }
 const other=s=>s==='esri'?'pnoa':'esri';
-async function analyzeWith(b,src){try{b.img=await grab(b,src);}catch(e){console.warn(b.id,src,e);b.img=null;}detect(b);}
+async function analyzeWith(b,src){b.fixed=false;try{b.img=await grab(b,src);}catch(e){console.warn(b.id,src,e);b.img=null;}detect(b);}
 
 /* Recorta la ortofoto de una cubierta y guarda luminancia por píxel (255 = fuera de la cubierta) */
 async function grab(b,src){
@@ -1029,6 +1031,7 @@ async function grab(b,src){
 }
 /* Clasifica píxeles de panel con los parámetros actuales */
 function detect(b){
+  if(b.fixed) return;
   const a=b.img; b.det=null; if(!a||a.cnt<60) return;
   const {W,H,Lum,bl}=a,thr=a.ref*P('pK'),c=new Uint8Array(W*H),pm=new Uint8Array(W*H);
   for(let i=0;i<W*H;i++){const l=Lum[i];if(l<255&&l<thr&&bl[i])c[i]=1;}
@@ -1048,6 +1051,88 @@ function detect(b){
     if(drop){if(n*m2>=4)shadow+=n;for(const i of comp)pm[i]=0;} else px+=n;
   }
   b.det={px,cov:px/a.cnt,area:px*m2,pm,url:null,diag:null,thr,shadow:shadow*m2};
+}
+
+function addRoof(o){
+  Object.assign(o,{sel:true,state:'pending',img:null,det:null});
+  o.poly=L.polygon(o.ring,{}).addTo(layer);
+  o.poly.on('click',e=>showDetail(o.id,false,e.originalEvent.shiftKey||multi));
+  B.set(o.id,o);return o;
+}
+
+/* Barrido de la vista completa: localiza grupos de paneles sin depender de huellas */
+async function sweep(src){
+  const z=18,bd=map.getBounds();
+  const [x0,y0]=proj(bd.getNorth(),bd.getWest(),z),[x1,y1]=proj(bd.getSouth(),bd.getEast(),z);
+  const minx=Math.floor(x0),miny=Math.floor(y0),W=Math.ceil(x1)-minx,H=Math.ceil(y1)-miny,N=W*H;
+  if(N>9e6) return {skipped:true};
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d',{willReadFrequently:true});
+  const jobs=[];
+  for(let tx=Math.floor(minx/256);tx<=Math.floor((minx+W-1)/256);tx++)
+    for(let ty=Math.floor(miny/256);ty<=Math.floor((miny+H-1)/256);ty++)
+      jobs.push(loadTile(src,z,tx,ty).then(im=>ctx.drawImage(im,tx*256-minx,ty*256-miny),()=>{}));
+  await Promise.all(jobs);
+  const im=ctx.getImageData(0,0,W,H).data,mpp=156543.03392*Math.cos(bd.getCenter().lat*Math.PI/180)/2**z,m2=mpp*mpp;
+  const Lum=new Uint8Array(N),okp=new Uint8Array(N);
+  for(let i=0,j=0;i<N;i++,j+=4){const r=im[j],g=im[j+1],b=im[j+2];Lum[i]=Math.min(254,(0.299*r+0.587*g+0.114*b)|0);
+    okp[i]=im[j+3]>128&&b>=r-6&&!(g>b+10&&g>=r)?1:0;} // azulado/neutro y no vegetación
+  // brillo local del techo: percentil 85 por bloques de ~11 m y máximo en un entorno de ~75 m
+  const BS=24,bw=Math.ceil(W/BS),bh=Math.ceil(H/BS),bref=new Float32Array(bw*bh),h=new Uint32Array(64);
+  for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){h.fill(0);let n=0;
+    for(let y=by*BS;y<Math.min(H,by*BS+BS);y++)for(let x=bx*BS;x<Math.min(W,bx*BS+BS);x++){h[Lum[y*W+x]>>2]++;n++;}
+    let acc=0;for(let k=0;k<64;k++){acc+=h[k];if(acc>=n*0.85){bref[by*bw+bx]=k*4+2;break;}}}
+  const lref=new Float32Array(bw*bh),R=3;
+  for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){let mx=0;
+    for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){const X=bx+dx,Y=by+dy;if(X>=0&&Y>=0&&X<bw&&Y<bh)mx=Math.max(mx,bref[Y*bw+X]);}
+    lref[by*bw+bx]=mx;}
+  const refAt=i=>lref[(((i/W)|0)/BS|0)*bw+((i%W)/BS|0)];
+  const k=P('pK'),c=new Uint8Array(N),pm=new Uint8Array(N);
+  for(let i=0;i<N;i++){const l=Lum[i];if(okp[i]&&l>15&&l<150&&l<k*refAt(i))c[i]=1;}
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(c[i]&&c[i-W-1]+c[i-W]+c[i-W+1]+c[i-1]+c[i+1]+c[i+W-1]+c[i+W]+c[i+W+1]>=4)pm[i]=1;}
+  // componentes: fuera ruido y sombras
+  const seen=new Uint8Array(N),st=new Int32Array(N);
+  for(let s0=0;s0<N;s0++){if(!pm[s0]||seen[s0])continue;let top=0,n=0,sumL=0,per=0;st[top++]=s0;seen[s0]=1;const comp=[];
+    while(top){const i=st[--top];comp.push(i);n++;sumL+=Lum[i];const x=i%W;let e=false;
+      for(const j of [x>0?i-1:-1,x<W-1?i+1:-1,i-W,i+W]){if(j<0||j>=N||!pm[j]){e=true;continue;}if(!seen[j]){seen[j]=1;st[top++]=j;}}if(e)per++;}
+    const thick=2*n/Math.max(per,1)*mpp;
+    const rel=sumL/n/refAt(s0);
+    if(n*m2<2||(thick>5&&rel<0.33)||(n*m2>8&&rel<0.31))for(const i of comp)pm[i]=0;} // sin huella, las sombras se filtran más estricto
+  // agrupar filas cercanas (dilatación ~2 m) en instalaciones
+  const D=Math.max(2,Math.round(2/mpp)),rowc=new Uint16Array(N),cm=new Uint8Array(N);
+  for(let y=0;y<H;y++){let run=0;const o=y*W;for(let x=0;x<W+D;x++){if(x<W&&pm[o+x])run=D*2+1;else if(run)run--;const t=x-D;if(t>=0&&t<W&&run)rowc[o+t]=1;}}
+  for(let x=0;x<W;x++){let run=0;for(let y=0;y<H+D;y++){if(y<H&&rowc[y*W+x])run=D*2+1;else if(run)run--;const t=y-D;if(t>=0&&t<H&&run)cm[t*W+x]=1;}}
+  const lab=new Int32Array(N),minP=P('pMinP'),out=[];let L1=0;
+  for(let s0=0;s0<N;s0++){if(!cm[s0]||lab[s0])continue;L1++;let top=0;st[top++]=s0;lab[s0]=L1;
+    let px=0,area=0,ax=1e9,ay=1e9,bx=-1,byy=-1;const edge=[];
+    while(top){const i=st[--top];area++;if(pm[i])px++;const x=i%W,y=(i/W)|0;
+      if(x<ax)ax=x;if(x>bx)bx=x;if(y<ay)ay=y;if(y>byy)byy=y;let e=false;
+      for(const j of [x>0?i-1:-1,x<W-1?i+1:-1,i-W,i+W]){if(j<0||j>=N||!cm[j]){e=true;continue;}if(!lab[j]){lab[j]=L1;st[top++]=j;}}
+      if(e)edge.push([x,y]);}
+    if(px*m2<minP) continue;
+    // entorno: los paneles en cubierta suelen tener techo claro alrededor; el aparcamiento no
+    const pad=Math.round(6/mpp),hist=new Uint32Array(256);let nn=0;
+    for(let y=Math.max(0,ay-pad);y<=Math.min(H-1,byy+pad);y+=2)for(let x=Math.max(0,ax-pad);x<=Math.min(W-1,bx+pad);x+=2){const i=y*W+x;if(!cm[i]){hist[Lum[i]]++;nn++;}}
+    let acc=0,med=0;for(let l=0;l<256;l++){acc+=hist[l];if(acc>=nn/2){med=l;break;}}
+    if(nn>50&&med<115) continue;
+    const hull=convexHull(edge);if(hull.length<3) continue;
+    const ring=hull.map(([x,y])=>{const p=unproj(minx+x+.5,miny+y+.5,z);return[p.lat,p.lng];});
+    const hullArea=geoArea(ring),Wc=bx-ax+1,Hc=byy-ay+1,sub=new Uint8Array(Wc*Hc);
+    for(let y=ay;y<=byy;y++)for(let x=ax;x<=bx;x++){const i=y*W+x;if(pm[i]&&lab[i]===L1)sub[(y-ay)*Wc+(x-ax)]=1;}
+    const cnt=Math.max(px,Math.round(hullArea/m2));
+    out.push({ring,c:cen(ring),area:hullArea,
+      img:{src,z,mpp,minx:minx+ax,miny:miny+ay,W:Wc,H:Hc,ref:Math.round(refAt(s0)),cnt},
+      det:{px,cov:px/cnt,area:px*m2,pm:sub,url:null,diag:null,thr:NaN,shadow:0}});
+  }
+  out.sort((a,b)=>b.det.area-a.det.area);
+  return {clusters:out};
+}
+function convexHull(p){
+  if(p.length<3) return p;
+  p=p.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],up=[];
+  for(const q of p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
+  for(let i=p.length-1;i>=0;i--){const q=p[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0)up.pop();up.push(q);}
+  up.pop();lo.pop();return lo.concat(up);
 }
 
 /* ---------- Clasificación y potencia ---------- */
@@ -1097,12 +1182,13 @@ out geom tags qt;`;
         else if(el.type==='relation'&&el.members){let first=true;for(const m of el.members)if(m.role==='outer'&&m.geometry){const r=ringOf(m.geometry);sol.push({ring:r,area:geoArea(r),kw:first?kw:0,c:cen(r)});first=false;}}
       }
     }
-    const fresh=[];let seen=0;
+    const fresh=[],spare=[];let seen=0;
     for(const el of j.elements){
       if(el.type!=='way'||!el.geometry||!el.tags?.building) continue;
       seen++;
       const id='w'+el.id; if(B.has(id)) continue;
-      const ring=ringOf(el.geometry),area=geoArea(ring); if(area<minA) continue;
+      const ring=ringOf(el.geometry),area=geoArea(ring);
+      if(area<minA){if(area>=300)spare.push({el,ring,area});continue;}
       const c=cen(ring), t=el.tags;
       let ok=IND_RE.test(t.building);
       if(!ok&&incl&&!RES_RE.test(t.building)) ok=rings.some(r=>inRing(c,r));
@@ -1114,15 +1200,11 @@ out geom tags qt;`;
         else hit=inRing(s.c,ring)||inRing(c,s.ring);
         if(hit){osm=osm||{kw:0,area:0,n:0};osm.kw+=s.kw;osm.area+=s.area||0;osm.n++;}
       }
-      if(!ok&&!osm) continue;
+      if(!ok&&!osm){spare.push({el,ring,area});continue;}
       const name=t.name||t.operator||(t['addr:street']?t['addr:street']+' '+(t['addr:housenumber']||''):'')||('Nave '+el.id);
-      const o={id,name:name.trim(),tags:t,ring,c,area,osm,sel:true,state:'pending',img:null,det:null};
-      o.poly=L.polygon(ring,{}).addTo(layer);
-      o.poly.on('click',e=>showDetail(o.id,false,e.originalEvent.shiftKey||multi));
-      B.set(id,o);fresh.push(o);
+      fresh.push(addRoof({id,name:name.trim(),tags:t,ring,c,area,osm}));
     }
     recompute();
-    if(!fresh.length){setStatus(`Ninguna nave nueva en esta vista (${seen} edificios leídos). Prueba a alejar el mapa o bajar la superficie mínima.`);return;}
 
     // Análisis de ortofoto
     const ctr=map.getCenter();
@@ -1150,10 +1232,40 @@ out geom tags qt;`;
     }
     fresh.forEach(b=>b.state='done');
     recompute();
+    // Barrido de toda la vista: paneles fuera de las huellas candidatas
+    let swept=null,added=0;
+    if(usedSrc&&$('pClu').checked){
+      setStatus('Buscando paneles en toda la ortofoto de la vista…');setProg(null);
+      swept=await sweep(usedSrc);
+      if(swept.clusters){
+        const sp=swept.clusters.length;let k=0;
+        for(const cl of swept.clusters){
+          k++;setProg(k/Math.max(sp,1));
+          if([...B.values()].some(b=>inRing(cl.c,b.ring))) continue; // ya analizada
+          const host=spare.find(x=>inRing(cl.c,x.ring));
+          let o;
+          if(host){
+            const t=host.el.tags,id='w'+host.el.id;if(B.has(id))continue;
+            const name=t.name||t.operator||(t['addr:street']?t['addr:street']+' '+(t['addr:housenumber']||''):'')||('Edificio '+host.el.id);
+            o=addRoof({id,name:name.trim(),tags:t,ring:host.ring,c:cen(host.ring),area:host.area,osm:null});
+            await analyzeWith(o,usedSrc);
+            if(!autoPV(o)){o.img=cl.img;o.det=cl.det;o.fixed=true;o.review=true;o.sel=false;} // solo el barrido lo ve: a revisar
+          }else{
+            const id='c'+cl.c[0].toFixed(5)+'_'+cl.c[1].toFixed(5);if(B.has(id))continue;
+            o=addRoof({id,name:'Cubierta sin huella en OSM',tags:{building:'sin huella'},ring:cl.ring,c:cl.c,area:cl.area,osm:null,noFoot:true});
+            o.img=cl.img;o.det=cl.det;o.fixed=true;o.review=true;o.sel=false;
+          }
+          o.state='done';fresh.push(o);added++;
+        }
+        recompute();
+      }
+    }
     const pv=fresh.filter(isPV),nO=pv.filter(b=>b.osm).length,nI=pv.length-nO;
     const by=s=>pv.filter(b=>!b.osm&&b.img?.src===s).length;
     setStatus(`${pv.length} de ${fresh.length} naves con FV (${nO} por OSM, ${nI} por ortofoto${nI&&srcs.length>1?`: ${by('esri')} Esri, ${by('pnoa')} PNOA`:''}).`+
-      (imgBlocked?' No se pudo leer la ortofoto, así que solo cuentan las etiquetas de OSM. Prueba otro método de detección.':' Toca una para ver su ficha.'),imgBlocked);
+      (added?` ${fresh.filter(b=>b.review&&isPV(b)).length} de ellas encontradas solo en el barrido de ortofoto: quedan «por revisar» y fuera del total hasta que las confirmes.`:'')+
+      (swept?.skipped?' Vista demasiado grande para barrer la ortofoto: acerca el mapa para buscar fuera de las huellas.':'')+
+      (imgBlocked?' No se pudo leer la ortofoto, así que solo cuentan las etiquetas de OSM. Prueba otro método de detección.':(pv.length?' Toca una para ver su ficha.':'')),imgBlocked);
   }catch(e){setStatus('No se pudo completar el análisis: '+e.message+'. Espera un minuto y vuelve a pulsar.',true);}
   finally{busy=false;$('scan').disabled=false;setProg(null);}
 }
@@ -1175,7 +1287,8 @@ const boxes=(N,cap)=>N>60?`<em>${nf(N)} × ${nf(cap,1)} MWh</em>`:Array.from({le
 function recompute(){
   const all=[...B.values()];
   for(const b of all){b.pv=b.state==='done'&&isPV(b);if(b.pv){const k=kwpOf(b);b.kwp=k.kw;b.kwHow=k.how;b.r=calc(b.kwp);}else{b.kwp=0;b.r=null;}}
-  ranked=all.filter(b=>b.pv).sort((a,b)=>b.kwp-a.kwp);
+  const rv=b=>b.review&&b.ovr===undefined;
+  ranked=all.filter(b=>b.pv).sort((a,b)=>(rv(a)-rv(b))||(b.kwp-a.kwp));
   ranked.forEach((b,i)=>b.rank=i+1);
   const sel=ranked.filter(b=>b.sel),R=calc(sel.reduce((s,b)=>s+b.kwp,0));
   $('kN').textContent=nf(R.N);$('boxes').innerHTML=boxes(R.N,R.cap);
@@ -1198,6 +1311,7 @@ function recompute(){
 }
 
 function srcCell(b){
+  if(b.review&&b.ovr===undefined) return '<span class="src" style="color:var(--muted)">revisar</span>';
   if(b.ovr===true) return '<span class="src" style="color:var(--fg)">manual</span>';
   if(b.osm) return '<span class="src" style="color:var(--accent)">OSM</span>';
   if(b.det) return `<span class="src" style="color:var(--warn)">${nf(b.det.cov*100)} %</span>`;
@@ -1228,6 +1342,7 @@ function styleFor(b){
   let s;
   if(b.state==='pending') s={color:css('--cand'),weight:1,fillColor:css('--cand'),fillOpacity:.08,dashArray:'2 4'};
   else if(!b.pv) s={color:css('--cand'),weight:1.5,fillColor:css('--cand'),fillOpacity:.12,dashArray:'4 3'};
+  else if(b.review&&b.ovr===undefined) s={color:css('--sun'),weight:1.5,fillColor:css('--sun'),fillOpacity:.05,dashArray:'3 4'};
   else {const c=b.osm&&b.ovr!==true?css('--accent'):css('--sun');const ov=$('showDet').checked&&b.det&&b.det.px;s={color:c,weight:2,fillColor:c,fillOpacity:ov?.06:(b.sel?.35:.1),dashArray:b.sel?null:'5 3'};}
   if(act.has(b.id)) Object.assign(s,{color:css('--fg'),weight:3.5,dashArray:null});
   return s;
@@ -1283,6 +1398,8 @@ function tagsOf(b){
   if(b.ovr===true) t.push('<span class="tag man">Marcada a mano</span>');
   if(b.ovr===false) t.push('<span class="tag none">Descartada a mano</span>');
   if(b.osm) t.push(`<span class="tag osm">FV en OSM${b.osm.kw?' · '+nf(b.osm.kw)+' kW':''}</span>`);
+  if(b.review&&b.ovr===undefined) t.push('<span class="tag man">Por revisar: solo la ve el barrido de ortofoto</span>');
+  if(b.noFoot) t.push('<span class="tag none">Sin huella en OSM: contorno del grupo de paneles</span>');
   if(b.det&&b.det.px) t.push(`<span class="tag img">Ortofoto · ${nf(b.det.cov*100)} % con paneles</span>`);
   if(!b.osm&&!b.det) t.push(`<span class="tag none">${b.img===null&&usedSrc?'Ortofoto no disponible':'Sin análisis de imagen'}</span>`);
   return `<div class="tags">${t.join('')}</div>`;
@@ -1358,6 +1475,7 @@ function renderDetail(){
     </dl>
     <div class="row">
       ${pvs.length?`<button id="detTog" class="${allIn?'':'primary'}">${allIn?'Quitar del total':(one?'Añadir al total':'Añadir todas al total')}</button>`:''}
+      ${one&&b.review&&b.ovr===undefined?'<button id="detPV" class="primary">Sí, tiene FV</button>':''}
       ${one?`<button id="detNo">No tiene FV</button>${b.ovr!==undefined?'<button id="detAuto">Volver a automático</button>':''}`:'<button id="detClr">Limpiar selección</button>'}
       <button id="detZoom">Centrar</button>
       ${links(one?b:null)}
@@ -1368,12 +1486,12 @@ function renderDetail(){
 function diagBlock(b){
   if($('pSrc').value==='osm') return '';
   const a=b.img,d=b.det,alt=a?other(a.src):(usedSrc||'esri');
-  return `<details id="diagBox"${diagOpen?' open':''}><summary><h2>Diagnóstico de la detección</h2></summary>
+  return `<details id="diagBox"${diagOpen||b.review?' open':''}><summary><h2>Diagnóstico de la detección</h2></summary>
     ${a?`<img id="diagImg" alt="Ortofoto analizada con los paneles detectados en cian" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--bg);min-height:80px">
     <dl class="calc" style="margin-top:8px">
       <dt>Ortofoto</dt><dd>${SRC[a.src].name} · z${a.z} · ${nf(a.mpp*100)} cm/px</dd>
       <dt>Brillo de referencia del techo</dt><dd>${a.ref}</dd>
-      <dt>Umbral de panel (× ${nf(P('pK'),2)})</dt><dd>${d?nf(d.thr):'—'}</dd>
+      <dt>Umbral de panel (× ${nf(P('pK'),2)})</dt><dd>${d&&isFinite(d.thr)?nf(d.thr):'local'}</dd>
       <dt>Área de panel / cobertura</dt><dd>${d?nf(d.area)+' m² · '+nf(d.cov*100,1)+' %':'—'}</dd>
       <dt>Descartado como sombra</dt><dd>${d?nf(d.shadow)+' m²':'—'}</dd>
     </dl>`:'<p class="note">No se pudo leer la ortofoto de esta cubierta.</p>'}
@@ -1400,14 +1518,14 @@ function links(b){
   const c=b?b.c:(()=>{const p=unionBounds().getCenter();return[p.lat,p.lng];})();
   const lat=c[0].toFixed(6),lon=c[1].toFixed(6);
   return `<a class="btn" href="https://www.google.com/maps/@${lat},${lon},180m/data=!3m1!1e3" target="_blank" rel="noopener">Google Maps</a>`+
-    (b?`<a class="btn" href="https://www.openstreetmap.org/way/${b.id.slice(1)}" target="_blank" rel="noopener">OSM</a>`:'');
+    (b&&b.id[0]==='w'?`<a class="btn" href="https://www.openstreetmap.org/way/${b.id.slice(1)}" target="_blank" rel="noopener">OSM</a>`:'');
 }
 function bindDetail(list,pvs,allIn){
   const on=(id,f)=>{const e=$(id);if(e)e.onclick=f;};
   const b=list[0];
   on('detTog',()=>{pvs.forEach(x=>x.sel=!allIn);recompute();});
   on('detNo',()=>{b.ovr=false;recompute();});
-  on('detPV',()=>{b.ovr=true;b.sel=true;recompute();});
+  on('detPV',()=>{b.ovr=true;b.sel=true;b.review=false;recompute();});
   on('detAuto',()=>{b.ovr=undefined;recompute();});
   on('detZoom',()=>map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]}));
   on('detClr',()=>{act.clear();recompute();});
@@ -1432,7 +1550,7 @@ $('csv').onclick=()=>{
   if(!sel.length){setStatus('No hay cubiertas con FV marcadas para exportar.',true);return;}
   const rows=[['opcion','id_osm','nombre','tipo','superficie_m2','area_paneles_m2','cobertura_pct','origen','kWp_existentes','base_estimacion','MWh_anio','excedente_MWh','contenedores','ahorro_bess_eur_anio','capex_bess_eur','retorno_anios','lat','lon']];
   for(const b of sel){const r=b.r;
-    rows.push([b.rank,b.id.slice(1),b.name,b.tags.building,b.area.toFixed(0),(b.det?.area||0).toFixed(0),b.det?(b.det.cov*100).toFixed(1):'',b.ovr===true?'manual':b.osm?'osm':'ortofoto',
+    rows.push([b.rank,b.id[0]==='w'?b.id.slice(1):'',b.name,b.tags.building,b.area.toFixed(0),(b.det?.area||0).toFixed(0),b.det?(b.det.cov*100).toFixed(1):'',b.ovr===true?'manual':b.osm?'osm':'ortofoto',
       r.kWp.toFixed(0),b.kwHow,r.Eyr.toFixed(0),r.Esur.toFixed(0),r.N,r.tot.toFixed(0),r.capex.toFixed(0),r.pay.toFixed(1),b.c[0].toFixed(6),b.c[1].toFixed(6)]);}
   const txt=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+txt],{type:'text/csv'}));
