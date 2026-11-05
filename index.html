@@ -782,7 +782,7 @@ details[open] summary{margin-bottom:10px}
   <div id="map"></div>
   <aside>
     <div class="sec">
-      <h1>Techos BESS <span class="ver">v1.0</span><small>Cubiertas industriales con fotovoltaica ya instalada y su potencial de almacenamiento en contenedores de 5 MWh</small></h1>
+      <h1>Techos BESS <span class="ver">v1.1</span><small>Cubiertas industriales con fotovoltaica ya instalada y su potencial de almacenamiento en contenedores de 5 MWh</small></h1>
       <div class="row">
         <input id="q" type="text" class="grow" placeholder="Polígono, municipio o dirección" value="Polígono Fuente del Jarro, Paterna">
         <button id="go">Buscar</button>
@@ -927,7 +927,7 @@ function parseKW(s){if(!s)return 0;const m=String(s).replace(',','.').match(/([\
 
 /* ---------- Estado ---------- */
 const B=new Map(), act=new Set();
-let multi=false, busy=false, ranked=[], usedSrc=null;
+let multi=false, busy=false, ranked=[], usedSrc=null, availSrc=[];
 
 /* ---------- Geocodificación ---------- */
 async function geocode(){
@@ -982,14 +982,17 @@ function loadTile(src,z,x,y){
   }
   return tileCache.get(k);
 }
-async function pickSource(lat,lng){
-  const v=$('pSrc').value; if(v==='osm') return null;
-  for(const s of v==='auto'?['pnoa','esri']:[v]){
+async function pickSources(lat,lng){
+  const v=$('pSrc').value; if(v==='osm') return [];
+  const out=[];
+  for(const s of v==='auto'?['esri','pnoa']:[v]){
     const z=18,[x,y]=proj(lat,lng,z);
-    try{await loadTile(s,z,Math.floor(x/256),Math.floor(y/256));return s;}catch(e){console.warn('ortofoto',s,e);}
+    try{await loadTile(s,z,Math.floor(x/256),Math.floor(y/256));out.push(s);}catch(e){console.warn('ortofoto',s,e);}
   }
-  return null;
+  return out;
 }
+const other=s=>s==='esri'?'pnoa':'esri';
+async function analyzeWith(b,src){try{b.img=await grab(b,src);}catch(e){console.warn(b.id,src,e);b.img=null;}detect(b);}
 
 /* Recorta la ortofoto de una cubierta y guarda luminancia por píxel (255 = fuera de la cubierta) */
 async function grab(b,src){
@@ -1029,10 +1032,22 @@ function detect(b){
   const a=b.img; b.det=null; if(!a||a.cnt<60) return;
   const {W,H,Lum,bl}=a,thr=a.ref*P('pK'),c=new Uint8Array(W*H),pm=new Uint8Array(W*H);
   for(let i=0;i<W*H;i++){const l=Lum[i];if(l<255&&l<thr&&bl[i])c[i]=1;}
-  let px=0;
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(!c[i])continue;
-    if(c[i-W-1]+c[i-W]+c[i-W+1]+c[i-1]+c[i+1]+c[i+W-1]+c[i+W]+c[i+W+1]>=4){pm[i]=1;px++;}}
-  b.det={px,cov:px/a.cnt,area:px*a.mpp*a.mpp,pm,url:null};
+    if(c[i-W-1]+c[i-W]+c[i-W+1]+c[i-1]+c[i+1]+c[i+W-1]+c[i+W]+c[i+W+1]>=4)pm[i]=1;}
+  // Componentes conexas: fuera manchas diminutas y sombras (gruesas y casi negras)
+  const seen=new Uint8Array(W*H),st=new Int32Array(W*H),m2=a.mpp*a.mpp;let px=0,shadow=0;
+  for(let s0=0;s0<W*H;s0++){
+    if(!pm[s0]||seen[s0])continue;
+    let n=0,top=0,sumL=0,per=0;st[top++]=s0;seen[s0]=1;const comp=[];
+    while(top){const i=st[--top];comp.push(i);n++;sumL+=Lum[i];const x=i%W;
+      const nb=[x>0?i-1:-1,x<W-1?i+1:-1,i-W,i+W];let edge=false;
+      for(const j of nb){if(j<0||j>=W*H||!pm[j]){edge=true;continue;}if(!seen[j]){seen[j]=1;st[top++]=j;}}
+      if(edge)per++;}
+    const thick=2*n/Math.max(per,1)*a.mpp, meanL=sumL/n;
+    const drop=n*m2<4||(thick>5&&meanL<0.33*a.ref);
+    if(drop){if(n*m2>=4)shadow+=n;for(const i of comp)pm[i]=0;} else px+=n;
+  }
+  b.det={px,cov:px/a.cnt,area:px*m2,pm,url:null,diag:null,thr,shadow:shadow*m2};
 }
 
 /* ---------- Clasificación y potencia ---------- */
@@ -1111,7 +1126,8 @@ out geom tags qt;`;
 
     // Análisis de ortofoto
     const ctr=map.getCenter();
-    usedSrc=$('pSrc').value==='osm'?null:(setStatus('Comprobando acceso a la ortofoto…'),await pickSource(ctr.lat,ctr.lng));
+    const srcs=$('pSrc').value==='osm'?[]:(setStatus('Comprobando acceso a la ortofoto…'),await pickSources(ctr.lat,ctr.lng));
+    usedSrc=srcs[0]||null; availSrc=srcs;
     const imgBlocked=$('pSrc').value!=='osm'&&!usedSrc;
     if(usedSrc){
       fresh.sort((a,b)=>b.area-a.area);
@@ -1119,8 +1135,12 @@ out geom tags qt;`;
       const worker=async()=>{
         while(next<fresh.length){
           const b=fresh[next++];
-          try{b.img=await grab(b,usedSrc);}catch(e){console.warn(b.id,e);b.img=null;}
-          detect(b);b.state='done';done++;
+          await analyzeWith(b,usedSrc);
+          if(!autoPV(b)&&srcs[1]){ // segunda opinión con la otra ortofoto (vuelo más reciente o más nítido)
+            const keep={img:b.img,det:b.det};await analyzeWith(b,srcs[1]);
+            if(!autoPV(b)){b.img=keep.img;b.det=keep.det;}
+          }
+          b.state='done';done++;
           setProg(done/fresh.length);
           setStatus(`Analizando ortofoto ${SRC[usedSrc].name}: ${done} de ${fresh.length} naves…`);
           if(Date.now()-last>400){last=Date.now();recompute();}
@@ -1131,7 +1151,8 @@ out geom tags qt;`;
     fresh.forEach(b=>b.state='done');
     recompute();
     const pv=fresh.filter(isPV),nO=pv.filter(b=>b.osm).length,nI=pv.length-nO;
-    setStatus(`${pv.length} de ${fresh.length} naves con FV (${nO} por OSM, ${nI} por ortofoto).`+
+    const by=s=>pv.filter(b=>!b.osm&&b.img?.src===s).length;
+    setStatus(`${pv.length} de ${fresh.length} naves con FV (${nO} por OSM, ${nI} por ortofoto${nI&&srcs.length>1?`: ${by('esri')} Esri, ${by('pnoa')} PNOA`:''}).`+
       (imgBlocked?' No se pudo leer la ortofoto, así que solo cuentan las etiquetas de OSM. Prueba otro método de detección.':' Toca una para ver su ficha.'),imgBlocked);
   }catch(e){setStatus('No se pudo completar el análisis: '+e.message+'. Espera un minuto y vuelve a pulsar.',true);}
   finally{busy=false;$('scan').disabled=false;setProg(null);}
@@ -1207,7 +1228,7 @@ function styleFor(b){
   let s;
   if(b.state==='pending') s={color:css('--cand'),weight:1,fillColor:css('--cand'),fillOpacity:.08,dashArray:'2 4'};
   else if(!b.pv) s={color:css('--cand'),weight:1.5,fillColor:css('--cand'),fillOpacity:.12,dashArray:'4 3'};
-  else {const c=b.osm&&b.ovr!==true?css('--accent'):css('--sun');s={color:c,weight:2,fillColor:c,fillOpacity:b.sel?.35:.1,dashArray:b.sel?null:'5 3'};}
+  else {const c=b.osm&&b.ovr!==true?css('--accent'):css('--sun');const ov=$('showDet').checked&&b.det&&b.det.px;s={color:c,weight:2,fillColor:c,fillOpacity:ov?.06:(b.sel?.35:.1),dashArray:b.sel?null:'5 3'};}
   if(act.has(b.id)) Object.assign(s,{color:css('--fg'),weight:3.5,dashArray:null});
   return s;
 }
@@ -1281,7 +1302,7 @@ function renderDetail(){
         ${b.img?`<dt>Ortofoto analizada</dt><dd>${SRC[b.img.src].name} · ${nf(b.img.mpp*100)} cm/px</dd>`:''}
       </dl>
       <div class="row"><button id="detPV" class="primary">Sí tiene FV</button>${b.ovr!==undefined?'<button id="detAuto">Volver a automático</button>':''}<button id="detZoom">Centrar</button>
-      ${links(b)}</div></div>`;
+      ${links(b)}</div>${diagBlock(b)}</div>`;
     bindDetail(list);return;
   }
   const pvs=list.filter(x=>x.pv).sort((a,b)=>a.rank-b.rank);
@@ -1340,8 +1361,40 @@ function renderDetail(){
       ${one?`<button id="detNo">No tiene FV</button>${b.ovr!==undefined?'<button id="detAuto">Volver a automático</button>':''}`:'<button id="detClr">Limpiar selección</button>'}
       <button id="detZoom">Centrar</button>
       ${links(one?b:null)}
-    </div></div>`;
+    </div>${one?diagBlock(b):''}</div>`;
   bindDetail(list,pvs,allIn);
+}
+
+function diagBlock(b){
+  if($('pSrc').value==='osm') return '';
+  const a=b.img,d=b.det,alt=a?other(a.src):(usedSrc||'esri');
+  return `<details id="diagBox"${diagOpen?' open':''}><summary><h2>Diagnóstico de la detección</h2></summary>
+    ${a?`<img id="diagImg" alt="Ortofoto analizada con los paneles detectados en cian" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--bg);min-height:80px">
+    <dl class="calc" style="margin-top:8px">
+      <dt>Ortofoto</dt><dd>${SRC[a.src].name} · z${a.z} · ${nf(a.mpp*100)} cm/px</dd>
+      <dt>Brillo de referencia del techo</dt><dd>${a.ref}</dd>
+      <dt>Umbral de panel (× ${nf(P('pK'),2)})</dt><dd>${d?nf(d.thr):'—'}</dd>
+      <dt>Área de panel / cobertura</dt><dd>${d?nf(d.area)+' m² · '+nf(d.cov*100,1)+' %':'—'}</dd>
+      <dt>Descartado como sombra</dt><dd>${d?nf(d.shadow)+' m²':'—'}</dd>
+    </dl>`:'<p class="note">No se pudo leer la ortofoto de esta cubierta.</p>'}
+    <div class="row" style="margin-top:8px"><button id="diagAlt">Analizar con ${SRC[alt].name}</button></div>
+    <p class="note" style="margin-top:6px">Si el cian no cae sobre los paneles, la huella de OSM está desplazada o la ortofoto es de antes de la instalación: prueba la otra fuente o corrige a mano.</p>
+  </details>`;
+}
+let diagOpen=false;
+async function paintDiag(b){
+  const el=$('diagImg'); if(!el||!b.img) return;
+  if(b.det?.diag){el.src=b.det.diag;return;}
+  const a=b.img,cv=document.createElement('canvas');cv.width=a.W;cv.height=a.H;const ctx=cv.getContext('2d');
+  const jobs=[];
+  for(let tx=Math.floor(a.minx/256);tx<=Math.floor((a.minx+a.W-1)/256);tx++)
+    for(let ty=Math.floor(a.miny/256);ty<=Math.floor((a.miny+a.H-1)/256);ty++)
+      jobs.push(loadTile(a.src,a.z,tx,ty).then(im=>ctx.drawImage(im,tx*256-a.minx,ty*256-a.miny),()=>{}));
+  await Promise.all(jobs);
+  if(b.det){const id=ctx.getImageData(0,0,a.W,a.H),p=id.data;for(let i=0;i<a.W*a.H;i++)if(b.det.pm[i]){p[i*4]=25;p[i*4+1]=227;p[i*4+2]=255;}ctx.putImageData(id,0,0);}
+  ctx.strokeStyle='#ff3b6b';ctx.lineWidth=Math.max(1.5,a.W/300);ctx.beginPath();
+  b.ring.forEach((q,i)=>{const[x,y]=proj(q[0],q[1],a.z);i?ctx.lineTo(x-a.minx,y-a.miny):ctx.moveTo(x-a.minx,y-a.miny);});ctx.closePath();ctx.stroke();
+  const url=cv.toDataURL('image/jpeg',0.85); if(b.det) b.det.diag=url; if($('diagImg')) $('diagImg').src=url;
 }
 function links(b){
   const c=b?b.c:(()=>{const p=unionBounds().getCenter();return[p.lat,p.lng];})();
@@ -1359,6 +1412,11 @@ function bindDetail(list,pvs,allIn){
   on('detZoom',()=>map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]}));
   on('detClr',()=>{act.clear();recompute();});
   $('det').querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{act.delete(x.dataset.rm);recompute();});
+  const box=$('diagBox');
+  if(box){box.addEventListener('toggle',()=>{diagOpen=box.open;if(box.open)paintDiag(b);});if(box.open)paintDiag(b);}
+  on('diagAlt',async()=>{const src=b.img?other(b.img.src):(usedSrc||'esri');$('diagAlt').disabled=true;$('diagAlt').textContent='Analizando…';
+    await analyzeWith(b,src);b.state='done';diagOpen=true;recompute();
+    setStatus(b.img?`Reanalizada con ${SRC[src].name}: ${b.det?nf(b.det.cov*100,1):0} % de cubierta con paneles.`:`No se pudo leer la ortofoto ${SRC[src].name} para esta cubierta.`,!b.img);});
 }
 
 /* ---------- Lista ---------- */
