@@ -671,45 +671,56 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 </style>
 <style>
-/* Layout: mapa a pantalla completa a la izquierda, panel de cálculo fijo a la derecha; en móvil, mapa arriba y panel debajo */
+/* Layout: mapa a la izquierda, panel de trabajo a la derecha (ficha → opciones → total → supuestos); en móvil, mapa arriba */
 :root{
   --bg:#f3f5f4; --panel:#ffffff; --fg:#17201d; --muted:#5d6a66; --line:#d9dfdc;
-  --accent:#0f6e5c; --accent-fg:#ffffff; --sun:#f2a516; --sun-dim:#f2a51640; --cand:#3b6f9a;
-  --good:#1d7a46; --warn:#b26a00;
+  --accent:#0f6e5c; --accent-fg:#ffffff; --sun:#f2a516; --sun-dim:#f2a51640; --cand:#7d8b87; --det:#19e3ff;
+  --warn:#b26a00;
   --f-display:"Archivo",system-ui,sans-serif; --f-body:"Archivo",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1513; --panel:#161e1b; --fg:#e6ece9; --muted:#93a39d; --line:#2a3531;
-  --accent:#3fb59a; --accent-fg:#06110e; --sun:#ffb93a; --sun-dim:#ffb93a40; --cand:#7fb0d8;
-  --good:#5fd08f; --warn:#f0a94a; color-scheme:dark}}
+  --accent:#3fb59a; --accent-fg:#06110e; --sun:#ffb93a; --sun-dim:#ffb93a40; --cand:#8a9994; --det:#19e3ff;
+  --warn:#f0a94a; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1513; --panel:#161e1b; --fg:#e6ece9; --muted:#93a39d; --line:#2a3531;
-  --accent:#3fb59a; --accent-fg:#06110e; --sun:#ffb93a; --sun-dim:#ffb93a40; --cand:#7fb0d8;
-  --good:#5fd08f; --warn:#f0a94a; color-scheme:dark}
+  --accent:#3fb59a; --accent-fg:#06110e; --sun:#ffb93a; --sun-dim:#ffb93a40; --cand:#8a9994; --det:#19e3ff;
+  --warn:#f0a94a; color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body)}
-.app{display:grid;grid-template-columns:1fr 400px;height:100%}
+.app{display:grid;grid-template-columns:1fr 420px;height:100%}
 #map{height:100%;min-height:0;background:var(--line)}
 aside{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
 .sec{padding:14px max(16px,env(safe-area-inset-right,0px)) 14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
 h1{font:700 18px/1.2 var(--f-display);margin:0;letter-spacing:-.01em}
+h1 .ver{font:500 11px var(--f-mono);color:var(--muted)}
 h1 small{display:block;font:500 12px var(--f-body);color:var(--muted);letter-spacing:0;margin-top:3px}
 h2{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0}
-.row{display:flex;gap:8px;flex-wrap:wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
 input,select,button{font:inherit;color:inherit}
 input[type=text],input[type=number],select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
-input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 11px;cursor:pointer;white-space:nowrap}
-button:hover{border-color:var(--accent)}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button,a.btn{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 11px;cursor:pointer;white-space:nowrap;color:inherit;text-decoration:none;display:inline-block}
+button:hover,a.btn:hover{border-color:var(--accent)}
 button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
 button:disabled{opacity:.5;cursor:default}
+button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .grow{flex:1;min-width:0}
 .status{font-size:12px;color:var(--muted);min-height:1.2em}
 .status.err{color:var(--warn)}
+.prog{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.opts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;font-size:13px}
+.opts-grid label{display:flex;flex-direction:column;gap:3px;color:var(--muted);font-size:12px}
+.opts-grid .full{grid-column:1/-1}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px}
+.legend{display:flex;gap:6px 14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend b{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:5px}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.kpi{background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.kpi{background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .kpi .v{font:600 20px/1.1 var(--f-mono);font-variant-numeric:tabular-nums}
 .kpi .l{font-size:11px;color:var(--muted)}
 .kpi.hero{grid-column:1/-1;flex-direction:row;align-items:center;gap:14px}
@@ -721,53 +732,49 @@ dl.calc{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin:0;font-s
 dl.calc dt{color:var(--muted)}
 dl.calc dd{margin:0;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 dl.calc .tot{color:var(--fg);font-weight:600;border-top:1px solid var(--line);padding-top:4px}
+.grp{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);grid-column:1/-1;margin-top:8px}
 .params{display:grid;grid-template-columns:1fr 96px;gap:6px 10px;align-items:center;font-size:13px}
-.params label{color:var(--fg)}
 .params label span{display:block;font-size:11px;color:var(--muted)}
 .params input,.params select{padding:5px 7px;text-align:right;font-family:var(--f-mono)}
+.params .grp{margin-top:10px}
 details summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details summary::-webkit-details-marker{display:none}
 details summary::after{content:"+";font:600 14px var(--f-mono);color:var(--muted)}
 details[open] summary::after{content:"–"}
 details[open] summary{margin-bottom:10px}
-.list{display:flex;flex-direction:column;font-size:13px}
-.list div{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);cursor:pointer}
-.list div:hover{color:var(--accent)}
-.list span{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
-.list .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
-.legend b{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:5px}
-.note{font-size:11.5px;color:var(--muted);line-height:1.5}
-.chk{display:flex;gap:8px;align-items:center;font-size:13px}
+.det-h{display:flex;flex-direction:column;gap:4px}
+.det-h b{font:700 16px/1.25 var(--f-display)}
+.det-h span{font-size:12px;color:var(--muted)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font:600 11px/18px var(--f-body);padding:0 7px;border-radius:9px;border:1px solid currentColor;white-space:nowrap}
+.tag.osm{color:var(--accent)} .tag.img{color:var(--warn)} .tag.man{color:var(--fg)} .tag.none{color:var(--muted)}
+.opts{display:flex;flex-direction:column;font-size:13px}
+.opt{display:grid;grid-template-columns:20px 24px minmax(0,1fr) 52px 62px 34px 46px;gap:6px;align-items:center;padding:6px 4px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:4px}
+.opt:hover{background:var(--bg)}
+.opt.on{background:var(--sun-dim)}
+.opt.off{color:var(--muted)}
+.opt .n{font:600 11px var(--f-mono);color:var(--muted)}
+.opt .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opt .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;font-size:12px}
+.opt .src{font-size:11px;text-align:right;white-space:nowrap}
+.opt input{margin:0}
+.opts .hd{cursor:default;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}
+.opts .hd:hover{background:none}
+.sub{display:grid;grid-template-columns:26px minmax(0,1fr) auto auto auto;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px dashed var(--line);align-items:center}
+.sub .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.sub .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub button{padding:0 6px;font-size:12px;line-height:18px}
+.note{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0}
 .leaflet-container{font:inherit}
 .leaflet-tooltip.rk{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;box-shadow:none;padding:0 5px;font:600 11px/16px var(--f-mono)}
 .leaflet-tooltip.rk::before{display:none}
 .leaflet-tooltip.rk.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .hide-rk .leaflet-tooltip.rk:not(.on){display:none}
-.det-h{display:flex;flex-direction:column;gap:2px}
-.det-h b{font:700 16px/1.25 var(--f-display)}
-.det-h span{font-size:12px;color:var(--muted)}
-.grp{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);grid-column:1/-1;margin-top:8px}
-.opts{display:flex;flex-direction:column;font-size:13px}
-.opt{display:grid;grid-template-columns:22px 26px minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:4px}
-.opt:hover{background:var(--bg)}
-button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-.sub{display:grid;grid-template-columns:26px minmax(0,1fr) auto auto auto;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px dashed var(--line);align-items:center}
-.sub .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
-.sub .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sub button{padding:0 6px;font-size:12px;line-height:18px}
-.opt.on{background:var(--sun-dim)}
-.opt .n{font:600 11px var(--f-mono);color:var(--muted)}
-.opt .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.opt .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;font-size:12px}
-.opt input{margin:0}
-.opts .hd{cursor:default;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}
-.opts .hd:hover{background:none}
-a.btn{display:inline-block;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 11px;color:inherit;text-decoration:none;white-space:nowrap}
-a.btn:hover{border-color:var(--accent)}
 @media (max-width:820px){
   .app{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}
   aside{border-left:0;border-top:1px solid var(--line);overflow:visible}
 }
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
 </style>
 </head>
 <body>
@@ -775,42 +782,55 @@ a.btn:hover{border-color:var(--accent)}
   <div id="map"></div>
   <aside>
     <div class="sec">
-      <h1>Techos BESS <span style="font:500 11px var(--f-mono);color:var(--muted)">v0.5</span><small>Potencial FV en cubiertas industriales y dimensionado de contenedores de 5 MWh</small></h1>
+      <h1>Techos BESS <span class="ver">v1.0</span><small>Cubiertas industriales con fotovoltaica ya instalada y su potencial de almacenamiento en contenedores de 5 MWh</small></h1>
       <div class="row">
         <input id="q" type="text" class="grow" placeholder="Polígono, municipio o dirección" value="Polígono Fuente del Jarro, Paterna">
         <button id="go">Buscar</button>
       </div>
-      <div class="row">
-        <button id="scan" class="primary grow">Analizar vista actual</button>
-        <button id="all">Todas</button>
-        <button id="none">Ninguna</button>
+      <button id="scan" class="primary">Detectar cubiertas con FV en la vista</button>
+      <div class="opts-grid">
+        <label>Método de detección
+          <select id="pSrc">
+            <option value="auto">Ortofoto PNOA (o Esri) + OSM</option>
+            <option value="pnoa">Ortofoto PNOA + OSM</option>
+            <option value="esri">Ortofoto Esri + OSM</option>
+            <option value="osm">Solo etiquetas OSM</option>
+          </select>
+        </label>
+        <label>Superficie mínima de nave (m²)<input id="minA" type="number" value="1500" step="100"></label>
+        <label class="chk full"><input id="incl" type="checkbox" checked> Incluir edificios sin etiquetar dentro de suelo industrial</label>
+        <label class="chk full"><input id="showAll" type="checkbox"> Mostrar también las naves sin FV</label>
+        <label class="chk full"><input id="showDet" type="checkbox" checked> Pintar en el mapa los paneles detectados</label>
       </div>
-      <label class="chk"><input id="incl" type="checkbox" checked> Incluir edificios sin etiquetar dentro de suelo industrial</label>
-      <div class="row">
-        <label class="chk grow">Superficie mínima (m²) <input id="minA" type="number" value="1500" step="100" style="width:90px"></label>
+      <div class="prog" id="prog" hidden><i id="progBar"></i></div>
+      <div id="status" class="status">Encuadra un polígono industrial (zoom ≥ 14) y pulsa «Detectar».</div>
+      <div class="legend">
+        <span><b style="background:var(--accent)"></b>FV en OSM</span>
+        <span><b style="background:var(--sun)"></b>FV en ortofoto</span>
+        <span><b style="background:var(--det)"></b>Paneles detectados</span>
+        <span><b style="background:var(--cand)"></b>Sin FV</span>
       </div>
-      <div id="status" class="status">Acerca el mapa (zoom ≥ 14) y pulsa «Analizar vista actual».</div>
-      <div class="legend"><span><b style="background:var(--sun)"></b>En el total</span><span><b style="background:var(--cand)"></b>Fuera del total</span><span><b style="background:var(--fg)"></b>Ficha abierta</span></div>
     </div>
 
     <div class="sec" id="detSec">
-      <div class="row" style="justify-content:space-between;align-items:center"><h2 id="detT">Ficha de cubierta</h2><button id="multi" aria-pressed="false" title="En teclado: Mayús + clic">Selección múltiple</button></div>
-      <div id="det"><p class="note">Toca una cubierta en el mapa, o una opción de la lista, para ver aquí su superficie, la potencia FV, los contenedores que admite y su ahorro. Con Mayús + clic sumas varias.</p></div>
+      <div class="row between"><h2 id="detT">Ficha de cubierta</h2><button id="multi" aria-pressed="false" title="En teclado: Mayús + clic">Selección múltiple</button></div>
+      <div id="det"></div>
     </div>
 
     <div class="sec">
-      <div class="row" style="justify-content:space-between;align-items:center"><h2>Opciones encontradas <span id="optN"></span></h2><button id="csv">Exportar CSV</button></div>
-      <div class="opts" id="list"><p class="note">Sin cubiertas todavía. Pulsa «Analizar vista actual».</p></div>
+      <div class="row between"><h2>Cubiertas con FV <span id="optN"></span></h2>
+        <div class="row"><button id="all">Todas</button><button id="none">Ninguna</button><button id="csv">CSV</button></div></div>
+      <div class="opts" id="list"></div>
     </div>
 
     <div class="sec">
       <h2>Total de las cubiertas marcadas</h2>
       <div class="kpis">
         <div class="kpi hero"><div><div class="v" id="kN">0</div><div class="l">contenedores de 5 MWh</div></div><div class="boxes" id="boxes"></div></div>
-        <div class="kpi"><div class="v" id="kMW">0,00</div><div class="l">MWp instalables</div></div>
-        <div class="kpi"><div class="v" id="kGWh">0,00</div><div class="l">GWh/año generados</div></div>
-        <div class="kpi"><div class="v" id="kA">0</div><div class="l">m² de cubierta (<span id="kB">0</span> naves)</div></div>
-        <div class="kpi"><div class="v" id="kS">0</div><div class="l">k€/año de ahorro</div></div>
+        <div class="kpi"><div class="v" id="kMW">0,00</div><div class="l">MWp de FV existente (<span id="kB">0</span> naves)</div></div>
+        <div class="kpi"><div class="v" id="kSur">0</div><div class="l">MWh/año de excedente vertido</div></div>
+        <div class="kpi"><div class="v" id="kS">0</div><div class="l">k€/año de ahorro con BESS</div></div>
+        <div class="kpi"><div class="v" id="kC">0,00</div><div class="l">M€ de CAPEX BESS</div></div>
       </div>
       <dl class="calc" id="calc"></dl>
     </div>
@@ -819,29 +839,35 @@ a.btn:hover{border-color:var(--accent)}
       <details>
         <summary><h2>Supuestos técnicos y económicos</h2></summary>
         <div class="params">
-          <label for="pUse">Cubierta aprovechable<span>descuenta retranqueos, lucernarios, pasillos</span></label><input id="pUse" type="number" value="60" step="5">
-          <label for="pDen">Densidad de módulo (kWp/m²)<span>~0,21 con módulos de 450–550 Wp</span></label><input id="pDen" type="number" value="0.21" step="0.01">
+          <div class="grp">Detección en ortofoto</div>
+          <label for="pK">Oscuridad relativa del panel<span>más alto detecta más (y más sombras)</span></label><input id="pK" type="number" value="0.58" step="0.02" min="0.2" max="0.9">
+          <label for="pCov">Cobertura mínima (%)<span>de la cubierta para contar como FV</span></label><input id="pCov" type="number" value="8" step="1">
+          <label for="pMinP">Área mínima de paneles (m²)</label><input id="pMinP" type="number" value="150" step="25">
+          <label for="pKpm">kWp por m² de panel<span>módulos de ~21 % de eficiencia</span></label><input id="pKpm" type="number" value="0.20" step="0.01">
+          <label for="pZ">Resolución de análisis<span>se aplica al volver a detectar</span></label>
+          <select id="pZ"><option value="18">z18 · ~46 cm/px</option><option value="19">z19 · ~23 cm/px</option></select>
+          <div class="grp">FV existente</div>
           <label for="pY">Producción específica (kWh/kWp·año)<span>Valencia ≈ 1.550–1.650</span></label><input id="pY" type="number" value="1600" step="25">
-          <label for="pSC">Autoconsumo directo (%)<span>resto es excedente</span></label><input id="pSC" type="number" value="55" step="5">
+          <label for="pSC">Autoconsumo actual sin baterías (%)<span>el resto se vierte a red</span></label><input id="pSC" type="number" value="60" step="5">
+          <div class="grp">Almacenamiento</div>
           <label for="pMode">Criterio de dimensionado</label>
           <select id="pMode"><option value="surplus">Excedente diario</option><option value="hours">h por MWp</option></select>
-          <label for="pH">Horas de almacenamiento por MWp<span>solo en criterio «h por MWp»</span></label><input id="pH" type="number" value="2" step="0.5">
+          <label for="pH">Horas por MWp<span>solo con «h por MWp»</span></label><input id="pH" type="number" value="2" step="0.5">
           <label for="pCap">Capacidad por contenedor (MWh)</label><input id="pCap" type="number" value="5" step="0.5">
           <label for="pDoD">Profundidad de descarga útil (%)</label><input id="pDoD" type="number" value="90" step="1">
           <label for="pRTE">Rendimiento ida y vuelta (%)</label><input id="pRTE" type="number" value="88" step="1">
           <label for="pCyc">Ciclos equivalentes/año</label><input id="pCyc" type="number" value="330" step="10">
-          <label for="pBuy">Precio compra energía (€/MWh)<span>término de energía + peajes</span></label><input id="pBuy" type="number" value="115" step="5">
-          <label for="pSell">Precio venta excedente (€/MWh)</label><input id="pSell" type="number" value="35" step="5">
-          <label for="pArb">Diferencial de arbitraje (€/MWh)<span>ciclos no cubiertos con FV</span></label><input id="pArb" type="number" value="45" step="5">
-          <label for="pCpv">CAPEX FV (€/Wp)</label><input id="pCpv" type="number" value="0.55" step="0.05">
           <label for="pCb">CAPEX BESS (€/kWh)</label><input id="pCb" type="number" value="210" step="10">
+          <div class="grp">Precios</div>
+          <label for="pBuy">Compra de energía (€/MWh)<span>término de energía + peajes</span></label><input id="pBuy" type="number" value="115" step="5">
+          <label for="pSell">Venta de excedente (€/MWh)<span>compensación actual</span></label><input id="pSell" type="number" value="35" step="5">
+          <label for="pArb">Diferencial de arbitraje (€/MWh)<span>ciclos que no cubre la FV</span></label><input id="pArb" type="number" value="45" step="5">
         </div>
       </details>
     </div>
 
-
     <div class="sec">
-      <p class="note">Huellas de edificio de OpenStreetMap (Overpass), geocodificación con Nominatim. Superficies geodésicas en planta, sin descontar orientación ni sombras. Cifras económicas indicativas: valida cada emplazamiento con PVGIS, curva de carga real y estudio estructural de cubierta.</p>
+      <p class="note">La FV se identifica de dos formas: etiquetas solares de OpenStreetMap (<code>generator:source=solar</code>), cuando existen, y análisis de la ortofoto dentro de cada cubierta, buscando zonas mucho más oscuras que el techo y de tono azulado o neutro. La potencia existente se estima por el área de panel detectada. Sombras de petos, lucernarios oscuros o cubiertas negras pueden dar falsos positivos: revisa la capa cian y corrige con «No tiene FV». El ahorro es solo el del almacenamiento: excedente que hoy se vende barato y pasa a autoconsumirse, más arbitraje.</p>
     </div>
   </aside>
 </div>
@@ -856,86 +882,81 @@ a.btn:hover{border-color:var(--accent)}
 </script>
 <script>
 window.addEventListener('error',e=>{const s=document.getElementById('status');if(s){s.textContent='Error: '+e.message;s.className='status err';}});
-if(!window.L){document.getElementById('map').innerHTML='<p style="padding:20px">No se pudo iniciar el mapa. Descarga el archivo y ábrelo desde tu equipo, no desde la vista previa.</p>';throw new Error('Leaflet no cargado');}
+if(!window.L){document.getElementById('map').innerHTML='<p style="padding:20px">No se pudo iniciar el mapa.</p>';throw new Error('Leaflet no cargado');}
 </script>
 <script>
-const $ = id => document.getElementById(id);
-const nf = (v, d=0) => v.toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $=id=>document.getElementById(id);
+const nf=(v,d=0)=>(isFinite(v)?v:0).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const P=id=>+$(id).value||0;
+const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+function setStatus(t,err){const s=$('status');s.textContent=t;s.className='status'+(err?' err':'');}
+function setProg(f){$('prog').hidden=f==null;$('progBar').style.width=f==null?'0':(f*100).toFixed(1)+'%';}
 
 /* ---------- Mapa ---------- */
-const map = L.map('map',{zoomControl:true}).setView([39.509,-0.448],15);
-// CARTO no exige Referer (OSM sí, y desde file:// Edge no lo envía)
-const osm = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'});
-const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imágenes © Esri'});
-sat.addTo(map);
-L.control.layers({'Satélite':sat,'Mapa':osm}).addTo(map);
+const SRC={
+  pnoa:{name:'PNOA (IGN)',max:20,url:(z,x,y)=>`https://www.ign.es/wmts/pnoa-ma?request=GetTile&service=WMTS&VERSION=1.0.0&Layer=OI.OrthoimageCoverage&Style=default&Format=image/jpeg&TileMatrixSet=GoogleMapsCompatible&TileMatrix=${z}&TileRow=${y}&TileCol=${x}`},
+  esri:{name:'Esri World Imagery',max:19,url:(z,x,y)=>`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`}
+};
+const map=L.map('map',{zoomControl:true}).setView([39.509,-0.448],15);
+const lyEsri=L.tileLayer(SRC.esri.url('{z}','{x}','{y}'),{maxZoom:20,maxNativeZoom:19,attribution:'Imágenes © Esri'});
+const lyPnoa=L.tileLayer(SRC.pnoa.url('{z}','{x}','{y}'),{maxZoom:20,attribution:'PNOA © IGN'});
+const lyMap=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'});
+lyEsri.addTo(map);
+L.control.layers({'Satélite Esri':lyEsri,'Ortofoto PNOA (IGN)':lyPnoa,'Mapa':lyMap}).addTo(map);
 let tileErr=0;
-[sat,osm].forEach(t=>t.on('tileerror',()=>{if(++tileErr===8)setStatus('El mapa base no carga. Cambia de capa (arriba a la derecha) o revisa si la red o el antivirus bloquean el servidor de teselas.',true);}));
-// Recalcula el tamaño cuando el layout termina (fuentes, grid)
+[lyEsri,lyPnoa,lyMap].forEach(t=>t.on('tileerror',()=>{if(++tileErr===8)setStatus('El mapa base no carga. Cambia de capa (arriba a la derecha) o revisa la red.',true);}));
 window.addEventListener('load',()=>map.invalidateSize());
 window.addEventListener('resize',()=>map.invalidateSize());
 setTimeout(()=>map.invalidateSize(),300);
-const layer = L.layerGroup().addTo(map);
+map.boxZoom.disable();
+const layer=L.layerGroup().addTo(map);
+let overlays=[];
+function syncRk(){map.getContainer().classList.toggle('hide-rk',map.getZoom()<15);}
+map.on('zoomend',syncRk);
+
+/* ---------- Geometría ---------- */
+function geoArea(r){const R=6378137,k=Math.PI/180;let s=0;for(let i=0;i<r.length;i++){const a=r[i],b=r[(i+1)%r.length];s+=(b[1]-a[1])*k*(2+Math.sin(a[0]*k)+Math.sin(b[0]*k));}return Math.abs(s*R*R/2);}
+function inRing(p,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[yi,xi]=r[i],[yj,xj]=r[j];if(((yi>p[0])!==(yj>p[0]))&&(p[1]<(xj-xi)*(p[0]-yi)/(yj-yi)+xi))c=!c;}return c;}
+const cen=r=>[r.reduce((s,p)=>s+p[0],0)/r.length,r.reduce((s,p)=>s+p[1],0)/r.length];
+const bboxOf=r=>{let a=90,b=180,c=-90,d=-180;for(const[y,x]of r){a=Math.min(a,y);b=Math.min(b,x);c=Math.max(c,y);d=Math.max(d,x);}return[a,b,c,d];};
+const proj=(lat,lng,z)=>{const s=256*2**z,sn=Math.sin(lat*Math.PI/180);return[(lng+180)/360*s,(0.5-Math.log((1+sn)/(1-sn))/(4*Math.PI))*s];};
+const unproj=(x,y,z)=>{const s=256*2**z,n=Math.PI-2*Math.PI*y/s;return L.latLng(180/Math.PI*Math.atan(Math.sinh(n)),x/s*360-180);};
+function parseKW(s){if(!s)return 0;const m=String(s).replace(',','.').match(/([\d.]+)\s*(mw|kw|w)?/i);if(!m)return 0;const v=+m[1],u=(m[2]||'kw').toLowerCase();return u==='mw'?v*1000:u==='w'?v/1000:v;}
 
 /* ---------- Estado ---------- */
-const B = new Map(); // id -> {id,name,tags,latlngs,area,sel,poly}
-
-function geoArea(ll){ // m², fórmula esférica
-  const R=6378137, rad=Math.PI/180; let s=0;
-  for(let i=0;i<ll.length;i++){const a=ll[i],b=ll[(i+1)%ll.length];
-    s+=(b.lng-a.lng)*rad*(2+Math.sin(a.lat*rad)+Math.sin(b.lat*rad));}
-  return Math.abs(s*R*R/2);
-}
-
-const act=new Set(); let multi=false;
-const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function styleFor(b){
-  const base = b.sel ? {color:css('--sun'),weight:2,fillColor:css('--sun'),fillOpacity:.45,dashArray:null}
-                     : {color:css('--cand'),weight:1.5,fillColor:css('--cand'),fillOpacity:.15,dashArray:'4 3'};
-  if(act.has(b.id)) Object.assign(base,{color:css('--fg'),weight:3.5,fillOpacity:.6,dashArray:null});
-  return base;
-}
-function restyle(){B.forEach(b=>{b.poly.setStyle(styleFor(b));const t=b.poly.getTooltip();if(t)t.getElement()?.classList.toggle('on',act.has(b.id));});}
-function syncRkVisibility(){map.getContainer().classList.toggle('hide-rk',map.getZoom()<15);}
-map.on('zoomend',syncRkVisibility);
-
-function setStatus(t,err){const s=$('status');s.textContent=t;s.className='status'+(err?' err':'');}
+const B=new Map(), act=new Set();
+let multi=false, busy=false, ranked=[], usedSrc=null;
 
 /* ---------- Geocodificación ---------- */
 async function geocode(){
   const q=$('q').value.trim(); if(!q) return;
   setStatus('Buscando «'+q+'»…');
-  // 1º Photon (CORS abierto, sin Referer); 2º Nominatim
   try{
     const r=await fetch('https://photon.komoot.io/api/?limit=1&lang=es&q='+encodeURIComponent(q));
     if(!r.ok) throw new Error('Photon '+r.status);
     const f=(await r.json()).features?.[0];
-    if(f){
-      const [lon,lat]=f.geometry.coordinates, ex=f.properties.extent;
+    if(f){const[lon,lat]=f.geometry.coordinates,ex=f.properties.extent;
       if(ex) map.fitBounds([[ex[3],ex[0]],[ex[1],ex[2]]],{maxZoom:16}); else map.setView([lat,lon],15);
-      const p=f.properties; setStatus([p.name,p.city||p.county,p.state].filter(Boolean).join(', ')+'. Pulsa «Analizar vista actual».');
-      return;
-    }
+      const p=f.properties; setStatus([p.name,p.city||p.county,p.state].filter(Boolean).join(', ')+'. Pulsa «Detectar».'); return;}
   }catch(e){console.warn(e);}
   try{
     const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q));
     const j=await r.json();
     if(!j.length){setStatus('No encuentro ese lugar. Prueba con el nombre del polígono y el municipio.',true);return;}
-    const bb=j[0].boundingbox.map(Number);
-    map.fitBounds([[bb[0],bb[2]],[bb[1],bb[3]]],{maxZoom:16});
-    setStatus(j[0].display_name.split(',').slice(0,3).join(',')+'. Pulsa «Analizar vista actual».');
-  }catch(e){setStatus('No se pudo buscar ('+e.message+'). Mueve el mapa a mano y pulsa «Analizar vista actual».',true);}
+    const bb=j[0].boundingbox.map(Number); map.fitBounds([[bb[0],bb[2]],[bb[1],bb[3]]],{maxZoom:16});
+    setStatus(j[0].display_name.split(',').slice(0,3).join(',')+'. Pulsa «Detectar».');
+  }catch(e){setStatus('No se pudo buscar ('+e.message+'). Mueve el mapa a mano.',true);}
 }
 
 /* ---------- Overpass ---------- */
 const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-const TIMEOUT_MS=25000;
 async function overpass(q){
   let lastErr;
   for(const url of OVERPASS){
-    const host=new URL(url).host, ctl=new AbortController(), t0=Date.now();
-    const timer=setTimeout(()=>ctl.abort(),TIMEOUT_MS);
+    const host=new URL(url).host,ctl=new AbortController(),t0=Date.now();
+    const timer=setTimeout(()=>ctl.abort(),25000);
     const tick=setInterval(()=>setStatus(`Consultando OpenStreetMap (${host})… ${Math.round((Date.now()-t0)/1000)} s`),1000);
     try{
       setStatus(`Consultando OpenStreetMap (${host})…`);
@@ -944,236 +965,435 @@ async function overpass(q){
       const j=await r.json();
       if(j.remark&&/runtime error|timed out/i.test(j.remark)) throw new Error(j.remark);
       return j;
-    }catch(e){lastErr=e.name==='AbortError'?new Error(host+' no respondió en '+TIMEOUT_MS/1000+' s'):e;console.warn(host,lastErr);}
+    }catch(e){lastErr=e.name==='AbortError'?new Error(host+' no respondió en 25 s'):e;console.warn(host,lastErr);}
     finally{clearTimeout(timer);clearInterval(tick);}
   }
   throw lastErr;
 }
-function inRing(pt,ring){ // ray casting, pt=[lat,lon]
-  let c=false;
-  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-    const [yi,xi]=ring[i],[yj,xj]=ring[j];
-    if(((yi>pt[0])!==(yj>pt[0]))&&(pt[1]<(xj-xi)*(pt[0]-yi)/(yj-yi)+xi)) c=!c;
+
+/* ---------- Teselas de ortofoto ---------- */
+const tileCache=new Map(); let inflight=0; const queue=[];
+function limit(fn){return new Promise((res,rej)=>{const run=()=>{inflight++;fn().then(res,rej).finally(()=>{inflight--;if(queue.length)queue.shift()();});};inflight<6?run():queue.push(run);});}
+function loadTile(src,z,x,y){
+  const k=src+'/'+z+'/'+x+'/'+y;
+  if(!tileCache.has(k)){
+    const p=limit(async()=>{const r=await fetch(SRC[src].url(z,x,y),{mode:'cors'});if(!r.ok)throw new Error('HTTP '+r.status);return createImageBitmap(await r.blob());});
+    p.catch(()=>tileCache.delete(k)); tileCache.set(k,p);
   }
-  return c;
+  return tileCache.get(k);
 }
+async function pickSource(lat,lng){
+  const v=$('pSrc').value; if(v==='osm') return null;
+  for(const s of v==='auto'?['pnoa','esri']:[v]){
+    const z=18,[x,y]=proj(lat,lng,z);
+    try{await loadTile(s,z,Math.floor(x/256),Math.floor(y/256));return s;}catch(e){console.warn('ortofoto',s,e);}
+  }
+  return null;
+}
+
+/* Recorta la ortofoto de una cubierta y guarda luminancia por píxel (255 = fuera de la cubierta) */
+async function grab(b,src){
+  let z=Math.min(+$('pZ').value,SRC[src].max),pts,minx,miny,W,H;
+  for(;;){
+    pts=b.ring.map(p=>proj(p[0],p[1],z));
+    minx=Math.floor(Math.min(...pts.map(p=>p[0])))-2; miny=Math.floor(Math.min(...pts.map(p=>p[1])))-2;
+    W=Math.ceil(Math.max(...pts.map(p=>p[0])))+2-minx; H=Math.ceil(Math.max(...pts.map(p=>p[1])))+2-miny;
+    if(W*H<=700000||z<=16) break; z--;
+  }
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});
+  const jobs=[];let fails=0;
+  for(let tx=Math.floor(minx/256);tx<=Math.floor((minx+W-1)/256);tx++)
+    for(let ty=Math.floor(miny/256);ty<=Math.floor((miny+H-1)/256);ty++)
+      jobs.push(loadTile(src,z,tx,ty).then(img=>ctx.drawImage(img,tx*256-minx,ty*256-miny),()=>{fails++;}));
+  await Promise.all(jobs);
+  if(fails===jobs.length) throw new Error('sin teselas');
+  const mpp=156543.03392*Math.cos(b.c[0]*Math.PI/180)/2**z;
+  const mc=document.createElement('canvas');mc.width=W;mc.height=H;
+  const m=mc.getContext('2d',{willReadFrequently:true});
+  m.beginPath();pts.forEach(([x,y],i)=>i?m.lineTo(x-minx,y-miny):m.moveTo(x-minx,y-miny));m.closePath();
+  m.fillStyle='#000';m.fill();
+  m.globalCompositeOperation='destination-out';m.lineJoin='round';m.lineWidth=2*Math.max(1,1.5/mpp);m.stroke(); // descarta 1,5 m de borde (petos, sombras)
+  const im=ctx.getImageData(0,0,W,H).data, mk=m.getImageData(0,0,W,H).data;
+  const N=W*H,Lum=new Uint8Array(N),bl=new Uint8Array(N),hist=new Uint32Array(256);let cnt=0;
+  for(let i=0,j=0;i<N;i++,j+=4){
+    if(mk[j+3]<128||im[j+3]<128){Lum[i]=255;continue;}
+    const r=im[j],g=im[j+1],bb=im[j+2],l=Math.min(254,(0.299*r+0.587*g+0.114*bb)|0);
+    Lum[i]=l;bl[i]=bb>=r-6?1:0;hist[l]++;cnt++;
+  }
+  let acc=0,ref=0;for(let l=0;l<256;l++){acc+=hist[l];if(acc>=cnt*0.85){ref=l;break;}} // brillo de referencia del techo (percentil 85)
+  return {src,z,mpp,minx,miny,W,H,Lum,bl,ref,cnt};
+}
+/* Clasifica píxeles de panel con los parámetros actuales */
+function detect(b){
+  const a=b.img; b.det=null; if(!a||a.cnt<60) return;
+  const {W,H,Lum,bl}=a,thr=a.ref*P('pK'),c=new Uint8Array(W*H),pm=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++){const l=Lum[i];if(l<255&&l<thr&&bl[i])c[i]=1;}
+  let px=0;
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(!c[i])continue;
+    if(c[i-W-1]+c[i-W]+c[i-W+1]+c[i-1]+c[i+1]+c[i+W-1]+c[i+W]+c[i+W+1]>=4){pm[i]=1;px++;}}
+  b.det={px,cov:px/a.cnt,area:px*a.mpp*a.mpp,pm,url:null};
+}
+
+/* ---------- Clasificación y potencia ---------- */
+function autoPV(b){
+  if(b.osm) return true;
+  return !!(b.det&&b.det.cov*100>=P('pCov')&&b.det.area>=P('pMinP'));
+}
+const isPV=b=>b.ovr!==undefined?b.ovr:autoPV(b);
+function kwpOf(b){
+  if(b.osm?.kw) return {kw:b.osm.kw,how:'potencia etiquetada en OSM'};
+  if(b.det&&b.det.area>=P('pMinP')) return {kw:b.det.area*P('pKpm'),how:'área de panel detectada'};
+  if(b.osm?.area) return {kw:Math.min(b.osm.area,b.area)*P('pKpm'),how:'polígono solar de OSM'};
+  return {kw:b.area*0.5*P('pKpm'),how:'supuesto: 50 % de la cubierta'};
+}
+
+/* ---------- Escaneo ---------- */
 const IND_RE=/^(industrial|warehouse|factory|manufacture|hangar|commercial|retail|service|storage_tank|transportation)$/;
-let busy=false;
+const RES_RE=/^(house|residential|apartments|detached|terrace|school|church|hospital|semidetached_house|bungalow)$/;
 async function scan(){
   if(busy) return;
-  if(map.getZoom()<14){setStatus('Acerca más el mapa (zoom ≥ 14) para no saturar Overpass.',true);return;}
-  const b=map.getBounds(), bbox=[b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].map(x=>x.toFixed(5)).join(',');
+  if(map.getZoom()<14){setStatus('Acerca más el mapa (zoom ≥ 14) para no saturar OpenStreetMap.',true);return;}
+  const bnd=map.getBounds(),bbox=[bnd.getSouth(),bnd.getWest(),bnd.getNorth(),bnd.getEast()].map(x=>x.toFixed(5)).join(',');
   const incl=$('incl').checked;
-  // Consulta ligera: sin map_to_area; el cruce con suelo industrial se hace en el navegador
   const q=`[out:json][timeout:25][maxsize:64000000];
 (
   way["building"](${bbox});
+  nwr["generator:source"="solar"](${bbox});
+  nwr["plant:source"="solar"](${bbox});
   ${incl?`way["landuse"="industrial"](${bbox});relation["landuse"="industrial"](${bbox});`:''}
 );
 out geom tags qt;`;
-  busy=true; $('scan').disabled=true;
+  busy=true;$('scan').disabled=true;setProg(0);
   try{
-    const j=await overpass(q); const minA=+$('minA').value||0;
-    // Polígonos de suelo industrial (ways y anillos exteriores de relations)
-    const rings=[];
+    const j=await overpass(q),minA=+$('minA').value||0;
+    const rings=[],sol=[];
+    const ringOf=g=>g.map(p=>[p.lat,p.lon]);
     for(const el of j.elements){
-      if(el.tags?.landuse!=='industrial') continue;
-      if(el.type==='way'&&el.geometry) rings.push(el.geometry.map(p=>[p.lat,p.lon]));
-      if(el.type==='relation'&&el.members) for(const m of el.members) if(m.role==='outer'&&m.geometry) rings.push(m.geometry.map(p=>[p.lat,p.lon]));
+      const t=el.tags||{};
+      if(t.landuse==='industrial'){
+        if(el.type==='way'&&el.geometry) rings.push(ringOf(el.geometry));
+        if(el.type==='relation'&&el.members) for(const m of el.members) if(m.role==='outer'&&m.geometry) rings.push(ringOf(m.geometry));
+      }
+      if(t['generator:source']==='solar'||t['plant:source']==='solar'){
+        const kw=parseKW(t['generator:output:electricity']||t['plant:output:electricity']);
+        if(el.type==='node') sol.push({pt:[el.lat,el.lon],kw});
+        else if(el.type==='way'&&el.geometry){const r=ringOf(el.geometry);sol.push(r.length>3?{ring:r,area:geoArea(r),kw,c:cen(r)}:{pt:r[0],kw});}
+        else if(el.type==='relation'&&el.members){let first=true;for(const m of el.members)if(m.role==='outer'&&m.geometry){const r=ringOf(m.geometry);sol.push({ring:r,area:geoArea(r),kw:first?kw:0,c:cen(r)});first=false;}}
+      }
     }
-    let added=0, seen=0, small=0;
+    const fresh=[];let seen=0;
     for(const el of j.elements){
       if(el.type!=='way'||!el.geometry||!el.tags?.building) continue;
       seen++;
       const id='w'+el.id; if(B.has(id)) continue;
-      const ll=el.geometry.map(p=>L.latLng(p.lat,p.lon));
-      const area=geoArea(ll); if(area<minA){small++;continue;}
-      let ok=IND_RE.test(el.tags.building);
-      if(!ok&&incl&&!/^(house|residential|apartments|detached|terrace|school|church|hospital)$/.test(el.tags.building)){
-        const c=[ll.reduce((s,p)=>s+p.lat,0)/ll.length, ll.reduce((s,p)=>s+p.lng,0)/ll.length];
-        ok=rings.some(r=>inRing(c,r));
+      const ring=ringOf(el.geometry),area=geoArea(ring); if(area<minA) continue;
+      const c=cen(ring), t=el.tags;
+      let ok=IND_RE.test(t.building);
+      if(!ok&&incl&&!RES_RE.test(t.building)) ok=rings.some(r=>inRing(c,r));
+      const bb=bboxOf(ring);
+      let osm=null;
+      for(const s of sol){
+        let hit=false;
+        if(s.pt) hit=s.pt[0]>=bb[0]&&s.pt[0]<=bb[2]&&s.pt[1]>=bb[1]&&s.pt[1]<=bb[3]&&inRing(s.pt,ring);
+        else hit=inRing(s.c,ring)||inRing(c,s.ring);
+        if(hit){osm=osm||{kw:0,area:0,n:0};osm.kw+=s.kw;osm.area+=s.area||0;osm.n++;}
       }
-      if(!ok) continue;
-      const name=el.tags.name||el.tags.operator||el.tags['addr:street']&&(el.tags['addr:street']+' '+(el.tags['addr:housenumber']||''))||('Nave '+el.id);
-      const o={id,name:name.trim(),tags:el.tags,latlngs:ll,area,sel:true};
-      o.poly=L.polygon(ll,styleFor(o)).addTo(layer);
-      o.poly.bindTooltip('',{permanent:true,direction:'center',className:'rk',interactive:false});
+      if(!ok&&!osm) continue;
+      const name=t.name||t.operator||(t['addr:street']?t['addr:street']+' '+(t['addr:housenumber']||''):'')||('Nave '+el.id);
+      const o={id,name:name.trim(),tags:t,ring,c,area,osm,sel:true,state:'pending',img:null,det:null};
+      o.poly=L.polygon(ring,{}).addTo(layer);
       o.poly.on('click',e=>showDetail(o.id,false,e.originalEvent.shiftKey||multi));
-      B.set(id,o); added++;
+      B.set(id,o);fresh.push(o);
     }
-    setStatus(added
-      ?`${added} cubiertas nuevas ≥ ${nf(minA)} m² (de ${seen} edificios en la vista). Toca una nave para ver su ficha.`
-      :`Ninguna cubierta nueva en esta vista (${seen} edificios leídos, ${small} por debajo de ${nf(minA)} m²). Prueba a alejar el mapa, bajar la superficie mínima o marcar «Incluir edificios sin etiquetar».`);
     recompute();
-  }catch(e){setStatus('No se pudo consultar Overpass: '+e.message+'. Espera un minuto y vuelve a pulsar.',true);}
-  finally{busy=false;$('scan').disabled=false;}
+    if(!fresh.length){setStatus(`Ninguna nave nueva en esta vista (${seen} edificios leídos). Prueba a alejar el mapa o bajar la superficie mínima.`);return;}
+
+    // Análisis de ortofoto
+    const ctr=map.getCenter();
+    usedSrc=$('pSrc').value==='osm'?null:(setStatus('Comprobando acceso a la ortofoto…'),await pickSource(ctr.lat,ctr.lng));
+    const imgBlocked=$('pSrc').value!=='osm'&&!usedSrc;
+    if(usedSrc){
+      fresh.sort((a,b)=>b.area-a.area);
+      let done=0,last=0,next=0;
+      const worker=async()=>{
+        while(next<fresh.length){
+          const b=fresh[next++];
+          try{b.img=await grab(b,usedSrc);}catch(e){console.warn(b.id,e);b.img=null;}
+          detect(b);b.state='done';done++;
+          setProg(done/fresh.length);
+          setStatus(`Analizando ortofoto ${SRC[usedSrc].name}: ${done} de ${fresh.length} naves…`);
+          if(Date.now()-last>400){last=Date.now();recompute();}
+        }
+      };
+      await Promise.all([worker(),worker(),worker()]);
+    }
+    fresh.forEach(b=>b.state='done');
+    recompute();
+    const pv=fresh.filter(isPV),nO=pv.filter(b=>b.osm).length,nI=pv.length-nO;
+    setStatus(`${pv.length} de ${fresh.length} naves con FV (${nO} por OSM, ${nI} por ortofoto).`+
+      (imgBlocked?' No se pudo leer la ortofoto, así que solo cuentan las etiquetas de OSM. Prueba otro método de detección.':' Toca una para ver su ficha.'),imgBlocked);
+  }catch(e){setStatus('No se pudo completar el análisis: '+e.message+'. Espera un minuto y vuelve a pulsar.',true);}
+  finally{busy=false;$('scan').disabled=false;setProg(null);}
 }
 
-/* ---------- Cálculo ---------- */
-function P(id){return +$(id).value||0;}
-const CO2=0.12; // tCO2/MWh, factor medio aproximado del mix peninsular
-function calc(A){
-  const use=P('pUse')/100, den=P('pDen'), yld=P('pY'), sc=P('pSC')/100, cap=P('pCap')||5,
-        dod=P('pDoD')/100, rte=P('pRTE')/100, cyc=P('pCyc'), buy=P('pBuy'), sell=P('pSell'), arb=P('pArb');
-  const Au=A*use, kWp=Au*den, MWp=kWp/1000;
-  const Eyr=kWp*yld/1000, Esc=Eyr*sc, Esur=Eyr-Esc;
-  const usable=cap*dod;
-  const raw=$('pMode').value==='hours' ? MWp*P('pH')/cap : (Esur/365)/usable;
+/* ---------- Cálculo de almacenamiento sobre FV existente ---------- */
+function calc(kWp){
+  const yld=P('pY'),sc=P('pSC')/100,cap=P('pCap')||5,dod=P('pDoD')/100,rte=P('pRTE')/100,cyc=P('pCyc'),buy=P('pBuy'),sell=P('pSell'),arb=P('pArb');
+  const MWp=kWp/1000,Eyr=kWp*yld/1000,Esc=Eyr*sc,Esur=Eyr-Esc,usable=cap*dod;
+  const raw=$('pMode').value==='hours'?MWp*P('pH')/cap:(Esur/365)/usable;
   let N=Math.round(raw); if(N===0&&raw>=0.3) N=1;
-  const cycEnergy=N*usable*cyc, pvShift=Math.min(cycEnergy,Esur), arbE=Math.max(0,cycEnergy-pvShift);
-  const sPV=Esc*buy+(Esur-pvShift)*sell, sBESS=pvShift*rte*buy+arbE*rte*arb, tot=sPV+sBESS;
-  const cPV=kWp*1000*P('pCpv'), cB=N*cap*1000*P('pCb'), capex=cPV+cB;
-  return {A,Au,kWp,MWp,Eyr,Esc,Esur,cap,usable,raw,N,cycEnergy,pvShift,arbE,sPV,sBESS,tot,cPV,cB,capex,pay:tot>0?capex/tot:0,
-          mods:Math.round(kWp/0.55),co2:(Esc+pvShift*rte)*CO2+(Esur-pvShift)*CO2};
+  const cycE=N*usable*cyc,pvShift=Math.min(cycE,Esur),arbE=Math.max(0,cycE-pvShift);
+  const gPV=pvShift*Math.max(0,rte*buy-sell),gArb=arbE*rte*arb,tot=gPV+gArb;
+  const capex=N*cap*1000*P('pCb');
+  return {kWp,MWp,Eyr,Esc,Esur,cap,usable,raw,N,pvShift,arbE,gPV,gArb,tot,capex,pay:tot>0?capex/tot:0,
+          today:Esc*buy+Esur*sell,lost:Esur*(buy-sell),co2:pvShift*rte*0.12};
 }
 const boxes=(N,cap)=>N>60?`<em>${nf(N)} × ${nf(cap,1)} MWh</em>`:Array.from({length:N},()=>'<i></i>').join('');
-let last=null, ranked=[];
+
 function recompute(){
   const all=[...B.values()];
-  for(const b of all){b.r=calc(b.area);b.kwp=b.r.kWp;}
-  ranked=all.sort((a,b)=>b.r.kWp-a.r.kWp);
-  ranked.forEach((b,i)=>{b.rank=i+1;b.poly.setTooltipContent(String(i+1));});
-  const sel=ranked.filter(b=>b.sel);
-  const R=calc(sel.reduce((s,b)=>s+b.area,0));
-  $('kN').textContent=nf(R.N); $('boxes').innerHTML=boxes(R.N,R.cap);
-  $('kMW').textContent=nf(R.MWp,2); $('kGWh').textContent=nf(R.Eyr/1000,2);
-  $('kA').textContent=nf(R.A); $('kB').textContent=nf(sel.length); $('kS').textContent=nf(R.tot/1000);
+  for(const b of all){b.pv=b.state==='done'&&isPV(b);if(b.pv){const k=kwpOf(b);b.kwp=k.kw;b.kwHow=k.how;b.r=calc(b.kwp);}else{b.kwp=0;b.r=null;}}
+  ranked=all.filter(b=>b.pv).sort((a,b)=>b.kwp-a.kwp);
+  ranked.forEach((b,i)=>b.rank=i+1);
+  const sel=ranked.filter(b=>b.sel),R=calc(sel.reduce((s,b)=>s+b.kwp,0));
+  $('kN').textContent=nf(R.N);$('boxes').innerHTML=boxes(R.N,R.cap);
+  $('kMW').textContent=nf(R.MWp,2);$('kB').textContent=nf(sel.length);
+  $('kSur').textContent=nf(R.Esur);$('kS').textContent=nf(R.tot/1000);$('kC').textContent=nf(R.capex/1e6,2);
   $('calc').innerHTML=`
-    <dt>Energía FV autoconsumida</dt><dd>${nf(R.Esc)} MWh</dd>
-    <dt>Excedente FV anual</dt><dd>${nf(R.Esur)} MWh</dd>
+    <dt>Producción FV anual</dt><dd>${nf(R.Eyr)} MWh</dd>
+    <dt>Autoconsumo actual</dt><dd>${nf(R.Esc)} MWh</dd>
     <dt>Dimensionado teórico</dt><dd>${nf(R.raw,2)} cont.</dd>
     <dt>Capacidad BESS</dt><dd>${nf(R.N*R.cap,1)} MWh</dd>
-    <dt>Excedente desplazado con BESS</dt><dd>${nf(R.pvShift)} MWh</dd>
+    <dt>Excedente recuperado</dt><dd>${nf(R.pvShift)} MWh</dd>
     <dt>Energía en arbitraje</dt><dd>${nf(R.arbE)} MWh</dd>
-    <dt>Ahorro FV (+ venta excedente)</dt><dd>${nf(R.sPV/1000)} k€</dd>
-    <dt>Valor añadido BESS</dt><dd>${nf(R.sBESS/1000)} k€</dd>
-    <dt class="tot">Ahorro total anual</dt><dd class="tot">${nf(R.tot/1000)} k€</dd>
-    <dt>CAPEX indicativo FV + BESS</dt><dd>${nf(R.capex/1e6,2)} M€</dd>
-    <dt>Retorno simple</dt><dd>${R.tot>0?nf(R.pay,1)+' años':'—'}</dd>`;
-  // Lista de opciones
-  $('optN').textContent=ranked.length?`(${ranked.length})`:'';
-  const MAX=150;
-  $('list').innerHTML=ranked.length
-    ? `<div class="opt hd"><span></span><span>#</span><span>Cubierta</span><span class="num">MWp</span><span class="num">Cont.</span><span class="num">k€/año</span></div>`
-      + ranked.slice(0,MAX).map(b=>`<div class="opt${act.has(b.id)?' on':''}" data-id="${b.id}">
-          <input type="checkbox" ${b.sel?'checked':''} aria-label="Incluir en el total" data-chk="${b.id}">
-          <span class="n">${b.rank}</span><span class="name">${esc(b.name)}</span>
-          <span class="num">${nf(b.r.MWp,2)}</span><span class="num">${b.r.N}</span><span class="num">${nf(b.r.tot/1000)}</span></div>`).join('')
-      + (ranked.length>MAX?`<p class="note">+ ${ranked.length-MAX} cubiertas más pequeñas.</p>`:'')
-    : '<p class="note">Sin cubiertas todavía. Pulsa «Analizar vista actual».</p>';
+    <dt>Ahorro por excedente almacenado</dt><dd>${nf(R.gPV/1000)} k€</dd>
+    <dt>Ahorro por arbitraje</dt><dd>${nf(R.gArb/1000)} k€</dd>
+    <dt class="tot">Ahorro anual con BESS</dt><dd class="tot">${nf(R.tot/1000)} k€</dd>
+    <dt>Retorno simple BESS</dt><dd>${R.tot>0?nf(R.pay,1)+' años':'—'}</dd>`;
+  renderList(all);
   renderDetail();
   restyle();
-  last={sel};
 }
 
+function srcCell(b){
+  if(b.ovr===true) return '<span class="src" style="color:var(--fg)">manual</span>';
+  if(b.osm) return '<span class="src" style="color:var(--accent)">OSM</span>';
+  if(b.det) return `<span class="src" style="color:var(--warn)">${nf(b.det.cov*100)} %</span>`;
+  return '<span class="src">—</span>';
+}
+function renderList(all){
+  const pending=all.filter(b=>b.state==='pending').length;
+  $('optN').textContent=ranked.length?`(${ranked.length})`:'';
+  const showAll=$('showAll').checked;
+  const nopv=showAll?all.filter(b=>b.state==='done'&&!b.pv).sort((a,b)=>b.area-a.area):[];
+  if(!ranked.length&&!nopv.length){
+    $('list').innerHTML=`<p class="note">${pending?'Analizando…':B.size?'No se ha detectado FV en las naves analizadas. Activa «Mostrar también las naves sin FV» para revisarlas, o baja la cobertura mínima en los supuestos.':'Todavía no hay cubiertas. Encuadra un polígono industrial y pulsa «Detectar cubiertas con FV en la vista».'}</p>`;
+    return;
+  }
+  const MAX=150;
+  $('list').innerHTML=`<div class="opt hd"><span></span><span>#</span><span>Cubierta</span><span class="num">Origen</span><span class="num">kWp FV</span><span class="num">Cont.</span><span class="num">k€/año</span></div>`
+   + ranked.slice(0,MAX).map(b=>`<div class="opt${act.has(b.id)?' on':''}" data-id="${b.id}">
+       <input type="checkbox" ${b.sel?'checked':''} aria-label="Incluir en el total" data-chk="${b.id}">
+       <span class="n">${b.rank}</span><span class="name">${esc(b.name)}</span>${srcCell(b)}
+       <span class="num">${nf(b.kwp)}</span><span class="num">${b.r.N}</span><span class="num">${nf(b.r.tot/1000)}</span></div>`).join('')
+   + (ranked.length>MAX?`<p class="note">+ ${ranked.length-MAX} cubiertas más pequeñas.</p>`:'')
+   + (nopv.length?`<div class="opt hd" style="margin-top:8px"><span></span><span></span><span>Sin FV detectada (${nopv.length})</span><span class="num">Cobert.</span><span class="num">m²</span><span></span><span></span></div>`
+      + nopv.slice(0,MAX).map(b=>`<div class="opt off${act.has(b.id)?' on':''}" data-id="${b.id}"><span></span><span class="n">—</span><span class="name">${esc(b.name)}</span>${srcCell(b)}<span class="num">${nf(b.area)}</span><span></span><span></span></div>`).join(''):'');
+}
+
+/* ---------- Estilo del mapa ---------- */
+function styleFor(b){
+  let s;
+  if(b.state==='pending') s={color:css('--cand'),weight:1,fillColor:css('--cand'),fillOpacity:.08,dashArray:'2 4'};
+  else if(!b.pv) s={color:css('--cand'),weight:1.5,fillColor:css('--cand'),fillOpacity:.12,dashArray:'4 3'};
+  else {const c=b.osm&&b.ovr!==true?css('--accent'):css('--sun');s={color:c,weight:2,fillColor:c,fillOpacity:b.sel?.35:.1,dashArray:b.sel?null:'5 3'};}
+  if(act.has(b.id)) Object.assign(s,{color:css('--fg'),weight:3.5,dashArray:null});
+  return s;
+}
+function restyle(){
+  const showAll=$('showAll').checked;
+  B.forEach(b=>{
+    const vis=b.state==='pending'||b.pv||showAll||act.has(b.id);
+    if(vis&&!layer.hasLayer(b.poly)) layer.addLayer(b.poly);
+    if(!vis&&layer.hasLayer(b.poly)) layer.removeLayer(b.poly);
+    b.poly.setStyle(styleFor(b));
+    if(b.pv){
+      if(!b.poly.getTooltip()) b.poly.bindTooltip(String(b.rank),{permanent:true,direction:'center',className:'rk',interactive:false});
+      else b.poly.setTooltipContent(String(b.rank));
+      b.poly.getTooltip().getElement()?.classList.toggle('on',act.has(b.id));
+    }else if(b.poly.getTooltip()) b.poly.unbindTooltip();
+  });
+  drawOverlays();
+}
+function overlayURL(b){
+  if(b.det.url) return b.det.url;
+  const a=b.img,cv=document.createElement('canvas');cv.width=a.W;cv.height=a.H;
+  const ctx=cv.getContext('2d'),id=ctx.createImageData(a.W,a.H),d=id.data;
+  const hex=css('--det').replace('#',''),r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),bl=parseInt(hex.slice(4,6),16);
+  for(let i=0;i<a.W*a.H;i++) if(b.det.pm[i]){d[i*4]=r;d[i*4+1]=g;d[i*4+2]=bl;d[i*4+3]=210;}
+  ctx.putImageData(id,0,0);
+  return b.det.url=cv.toDataURL();
+}
+function drawOverlays(){
+  overlays.forEach(o=>map.removeLayer(o));overlays=[];
+  if(!$('showDet').checked) return;
+  const show=act.size?[...act].map(id=>B.get(id)):ranked.filter(b=>!b.osm||b.det);
+  for(const b of show){
+    if(!b?.det||!b.img||!b.det.px) continue;
+    const a=b.img,bounds=L.latLngBounds(unproj(a.minx,a.miny+a.H,a.z),unproj(a.minx+a.W,a.miny,a.z));
+    overlays.push(L.imageOverlay(overlayURL(b),bounds,{opacity:.85,interactive:false}).addTo(map));
+  }
+}
+syncRk();
+
+/* ---------- Ficha ---------- */
 function showDetail(id,fly,add){
   if(!B.has(id)) return;
-  if(add){ act.has(id)?act.delete(id):act.add(id); }
-  else { act.clear(); act.add(id); }
+  if(add){act.has(id)?act.delete(id):act.add(id);} else {act.clear();act.add(id);}
   if(fly&&act.size) map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]});
   recompute();
-  if(!add) $('detSec').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+  if(!add) $('detSec').scrollIntoView({behavior:reduced()?'auto':'smooth',block:'start'});
 }
 function unionBounds(){const bb=L.latLngBounds([]);act.forEach(id=>bb.extend(B.get(id).poly.getBounds()));return bb;}
+const EMPTY='<p class="note">Toca una cubierta en el mapa, o una fila de la lista, para ver la FV que tiene instalada, los contenedores que admite y el ahorro que aportan. Con Mayús + clic sumas varias.</p>';
+function tagsOf(b){
+  const t=[];
+  if(b.ovr===true) t.push('<span class="tag man">Marcada a mano</span>');
+  if(b.ovr===false) t.push('<span class="tag none">Descartada a mano</span>');
+  if(b.osm) t.push(`<span class="tag osm">FV en OSM${b.osm.kw?' · '+nf(b.osm.kw)+' kW':''}</span>`);
+  if(b.det&&b.det.px) t.push(`<span class="tag img">Ortofoto · ${nf(b.det.cov*100)} % con paneles</span>`);
+  if(!b.osm&&!b.det) t.push(`<span class="tag none">${b.img===null&&usedSrc?'Ortofoto no disponible':'Sin análisis de imagen'}</span>`);
+  return `<div class="tags">${t.join('')}</div>`;
+}
 function renderDetail(){
-  const list=[...act].map(id=>B.get(id)).filter(Boolean).sort((a,b)=>a.rank-b.rank);
-  if(!list.length){$('detT').textContent='Ficha de cubierta';$('det').innerHTML='<p class="note">Toca una cubierta en el mapa, o una opción de la lista, para ver aquí su superficie, la potencia FV, los contenedores que admite y su ahorro. Con Mayús + clic sumas varias.</p>';return;}
-  const one=list.length===1, b=list[0];
-  const r=calc(list.reduce((s,x)=>s+x.area,0));
-  const sumN=list.reduce((s,x)=>s+x.r.N,0);
-  const c=unionBounds().getCenter(), lat=c.lat.toFixed(6), lon=c.lng.toFixed(6);
+  const list=[...act].map(id=>B.get(id)).filter(Boolean);
+  if(!list.length){$('detT').textContent='Ficha de cubierta';$('det').innerHTML=EMPTY;return;}
+  const one=list.length===1,b=list[0];
+  if(one&&!b.pv){
+    const d=b.det;
+    $('detT').textContent='Ficha de cubierta';
+    $('det').innerHTML=`<div style="display:flex;flex-direction:column;gap:10px">
+      <div class="det-h"><b>${esc(b.name)}</b><span>${b.ovr===false?'Sin FV (descartada a mano)':'Sin FV detectada'} · edificio «${esc(b.tags.building)}»</span>${tagsOf(b)}</div>
+      <dl class="calc">
+        <dt>Superficie en planta</dt><dd>${nf(b.area)} m²</dd>
+        ${d?`<dt>Píxeles oscuros en cubierta</dt><dd>${nf(d.cov*100,1)} %</dd><dt>Área equivalente</dt><dd>${nf(d.area)} m²</dd>`:''}
+        ${b.img?`<dt>Ortofoto analizada</dt><dd>${SRC[b.img.src].name} · ${nf(b.img.mpp*100)} cm/px</dd>`:''}
+      </dl>
+      <div class="row"><button id="detPV" class="primary">Sí tiene FV</button>${b.ovr!==undefined?'<button id="detAuto">Volver a automático</button>':''}<button id="detZoom">Centrar</button>
+      ${links(b)}</div></div>`;
+    bindDetail(list);return;
+  }
+  const pvs=list.filter(x=>x.pv).sort((a,b)=>a.rank-b.rank);
+  const r=calc(pvs.reduce((s,x)=>s+x.kwp,0)),sumN=pvs.reduce((s,x)=>s+x.r.N,0);
+  const area=pvs.reduce((s,x)=>s+x.area,0),parea=pvs.reduce((s,x)=>s+(x.det?.area||0),0);
   let head;
   if(one){
-    const t=b.tags, addr=[t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
-    head=`<div class="det-h"><b>${esc(b.name)}</b><span>Opción ${b.rank} de ${ranked.length} · edificio «${esc(t.building)}»${addr?' · '+esc(addr):''}</span></div>`;
+    const t=b.tags,addr=[t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
+    head=`<div class="det-h"><b>${esc(b.name)}</b><span>Opción ${b.rank} de ${ranked.length} · edificio «${esc(t.building)}»${addr?' · '+esc(addr):''}</span>${tagsOf(b)}</div>`;
   }else{
-    head=`<div class="det-h"><b>${list.length} cubiertas sumadas</b><span>Calculadas como una sola instalación conjunta</span></div>
-    <div><div class="sub" style="color:var(--muted);font-size:11px"><span>#</span><span>Cubierta</span><span class="num">MWp</span><span class="num">Cont.</span><span></span></div>
-    ${list.map(x=>`<div class="sub"><span class="num" style="text-align:left">${x.rank}</span><span class="name">${esc(x.name)}</span><span class="num">${nf(x.r.MWp,2)}</span><span class="num">${x.r.N}</span><button data-rm="${x.id}" aria-label="Quitar de la suma">×</button></div>`).join('')}</div>`;
+    const skipped=list.length-pvs.length;
+    head=`<div class="det-h"><b>${pvs.length} cubiertas sumadas</b><span>Calculadas como una sola instalación de almacenamiento${skipped?` · ${skipped} sin FV no suman`:''}</span></div>
+    <div><div class="sub" style="color:var(--muted);font-size:11px"><span>#</span><span>Cubierta</span><span class="num">kWp</span><span class="num">Cont.</span><span></span></div>
+    ${list.map(x=>`<div class="sub"><span class="num" style="text-align:left">${x.pv?x.rank:'—'}</span><span class="name">${esc(x.name)}</span><span class="num">${x.pv?nf(x.kwp):'sin FV'}</span><span class="num">${x.pv?x.r.N:''}</span><button data-rm="${x.id}" aria-label="Quitar de la suma">×</button></div>`).join('')}</div>`;
   }
-  const allIn=list.every(x=>x.sel);
+  const allIn=pvs.every(x=>x.sel);
   $('detT').textContent=one?'Ficha de cubierta':'Suma de cubiertas';
-  $('det').innerHTML=`
-  <div style="display:flex;flex-direction:column;gap:10px">
+  $('det').innerHTML=`<div style="display:flex;flex-direction:column;gap:10px">
     ${head}
     <div class="kpis">
       <div class="kpi hero"><div><div class="v">${r.N}</div><div class="l">contenedores de ${nf(r.cap,1)} MWh</div></div><div class="boxes">${boxes(r.N,r.cap)}</div></div>
-      <div class="kpi"><div class="v">${nf(r.MWp,2)}</div><div class="l">MWp instalables</div></div>
-      <div class="kpi"><div class="v">${nf(r.Eyr)}</div><div class="l">MWh/año generados</div></div>
-      <div class="kpi"><div class="v">${nf(r.tot/1000)}</div><div class="l">k€/año de ahorro</div></div>
-      <div class="kpi"><div class="v">${r.tot>0?nf(r.pay,1):'—'}</div><div class="l">años de retorno simple</div></div>
+      <div class="kpi"><div class="v">${nf(r.kWp)}</div><div class="l">kWp de FV existente</div></div>
+      <div class="kpi"><div class="v">${nf(r.Esur)}</div><div class="l">MWh/año vertidos a red</div></div>
+      <div class="kpi"><div class="v">${nf(r.tot/1000)}</div><div class="l">k€/año de ahorro con BESS</div></div>
+      <div class="kpi"><div class="v">${r.tot>0?nf(r.pay,1):'—'}</div><div class="l">años de retorno BESS</div></div>
     </div>
     <dl class="calc">
       <div class="grp">Cubierta</div>
-      <dt>Superficie en planta</dt><dd>${nf(r.A)} m²</dd>
-      <dt>Superficie aprovechable (${nf(P('pUse'))} %)</dt><dd>${nf(r.Au)} m²</dd>
-      <dt>Módulos aprox. (550 Wp)</dt><dd>${nf(r.mods)} ud</dd>
-      <dt>Potencia pico</dt><dd>${nf(r.kWp)} kWp</dd>
-      <div class="grp">Energía</div>
+      <dt>Superficie en planta</dt><dd>${nf(area)} m²</dd>
+      ${parea?`<dt>Área con paneles detectada</dt><dd>${nf(parea)} m²</dd><dt>Cobertura</dt><dd>${nf(parea/area*100)} %</dd>`:''}
+      ${one&&b.img?`<dt>Ortofoto analizada</dt><dd>${SRC[b.img.src].name} · ${nf(b.img.mpp*100)} cm/px</dd>`:''}
+      <div class="grp">FV existente</div>
+      <dt>Potencia estimada</dt><dd>${nf(r.kWp)} kWp</dd>
+      ${one?`<dt>Base de la estimación</dt><dd style="font-family:var(--f-body)">${b.kwHow}</dd>`:''}
       <dt>Producción anual</dt><dd>${nf(r.Eyr)} MWh</dd>
-      <dt>Autoconsumo directo</dt><dd>${nf(r.Esc)} MWh</dd>
-      <dt>Excedente</dt><dd>${nf(r.Esur)} MWh</dd>
+      <dt>Autoconsumo actual (${nf(P('pSC'))} %)</dt><dd>${nf(r.Esc)} MWh</dd>
+      <dt>Excedente vertido</dt><dd>${nf(r.Esur)} MWh</dd>
       <dt>Excedente medio diario</dt><dd>${nf(r.Esur/365,1)} MWh</dd>
+      <dt>Pérdida frente a autoconsumirlo</dt><dd>${nf(r.lost/1000,1)} k€</dd>
       <div class="grp">Almacenamiento</div>
       <dt>Dimensionado teórico</dt><dd>${nf(r.raw,2)} cont.</dd>
       <dt>Contenedores propuestos</dt><dd>${r.N} × ${nf(r.cap,1)} MWh</dd>
       ${one?'':`<dt>Suma de fichas individuales</dt><dd>${sumN} cont.</dd>`}
       <dt>Capacidad útil</dt><dd>${nf(r.N*r.usable,1)} MWh</dd>
-      <dt>Excedente desplazado</dt><dd>${nf(r.pvShift)} MWh</dd>
+      <dt>Excedente recuperado</dt><dd>${nf(r.pvShift)} MWh</dd>
       <dt>Energía en arbitraje</dt><dd>${nf(r.arbE)} MWh</dd>
       <div class="grp">Economía</div>
-      <dt>Ahorro FV (+ venta excedente)</dt><dd>${nf(r.sPV/1000,1)} k€</dd>
-      <dt>Valor añadido BESS</dt><dd>${nf(r.sBESS/1000,1)} k€</dd>
-      <dt class="tot">Ahorro total anual</dt><dd class="tot">${nf(r.tot/1000,1)} k€</dd>
-      <dt>CAPEX FV</dt><dd>${nf(r.cPV/1000)} k€</dd>
-      <dt>CAPEX BESS</dt><dd>${nf(r.cB/1000)} k€</dd>
-      <dt>CO₂ evitado</dt><dd>${nf(r.co2)} t/año</dd>
-      <div class="grp">Ubicación</div>
-      <dt>${one?'Coordenadas':'Centro del conjunto'}</dt><dd>${lat}, ${lon}</dd>
+      <dt>Ahorro por excedente almacenado</dt><dd>${nf(r.gPV/1000,1)} k€</dd>
+      <dt>Ahorro por arbitraje</dt><dd>${nf(r.gArb/1000,1)} k€</dd>
+      <dt class="tot">Ahorro anual con BESS</dt><dd class="tot">${nf(r.tot/1000,1)} k€</dd>
+      <dt>CAPEX BESS</dt><dd>${nf(r.capex/1000)} k€</dd>
+      <dt>CO₂ evitado adicional</dt><dd>${nf(r.co2)} t/año</dd>
     </dl>
     <div class="row">
-      <button id="detTog" class="${allIn?'':'primary'}">${allIn?'Quitar del total':(one?'Añadir al total':'Añadir todas al total')}</button>
+      ${pvs.length?`<button id="detTog" class="${allIn?'':'primary'}">${allIn?'Quitar del total':(one?'Añadir al total':'Añadir todas al total')}</button>`:''}
+      ${one?`<button id="detNo">No tiene FV</button>${b.ovr!==undefined?'<button id="detAuto">Volver a automático</button>':''}`:'<button id="detClr">Limpiar selección</button>'}
       <button id="detZoom">Centrar</button>
-      ${one?'':'<button id="detClr">Limpiar selección</button>'}
-      <a class="btn" href="https://www.google.com/maps/search/?api=1&query=${lat},${lon}" target="_blank" rel="noopener">Google Maps</a>
-      ${one?`<a class="btn" href="https://www.openstreetmap.org/way/${b.id.slice(1)}" target="_blank" rel="noopener">OSM</a>`:''}
-    </div>
-  </div>`;
-  $('detTog').onclick=()=>{list.forEach(x=>x.sel=!allIn);recompute();};
-  $('detZoom').onclick=()=>map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]});
-  if($('detClr')) $('detClr').onclick=()=>{act.clear();recompute();};
+      ${links(one?b:null)}
+    </div></div>`;
+  bindDetail(list,pvs,allIn);
+}
+function links(b){
+  const c=b?b.c:(()=>{const p=unionBounds().getCenter();return[p.lat,p.lng];})();
+  const lat=c[0].toFixed(6),lon=c[1].toFixed(6);
+  return `<a class="btn" href="https://www.google.com/maps/@${lat},${lon},180m/data=!3m1!1e3" target="_blank" rel="noopener">Google Maps</a>`+
+    (b?`<a class="btn" href="https://www.openstreetmap.org/way/${b.id.slice(1)}" target="_blank" rel="noopener">OSM</a>`:'');
+}
+function bindDetail(list,pvs,allIn){
+  const on=(id,f)=>{const e=$(id);if(e)e.onclick=f;};
+  const b=list[0];
+  on('detTog',()=>{pvs.forEach(x=>x.sel=!allIn);recompute();});
+  on('detNo',()=>{b.ovr=false;recompute();});
+  on('detPV',()=>{b.ovr=true;b.sel=true;recompute();});
+  on('detAuto',()=>{b.ovr=undefined;recompute();});
+  on('detZoom',()=>map.fitBounds(unionBounds(),{maxZoom:18,padding:[30,30]}));
+  on('detClr',()=>{act.clear();recompute();});
   $('det').querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{act.delete(x.dataset.rm);recompute();});
 }
 
+/* ---------- Lista ---------- */
 $('list').addEventListener('click',e=>{
   const chk=e.target.closest('[data-chk]');
-  if(chk){const b=B.get(chk.dataset.chk);b.sel=chk.checked;recompute();return;}
-  const d=e.target.closest('[data-id]'); if(d) showDetail(d.dataset.id,!(e.shiftKey||multi),e.shiftKey||multi);
+  if(chk){B.get(chk.dataset.chk).sel=chk.checked;recompute();return;}
+  const d=e.target.closest('[data-id]');if(d)showDetail(d.dataset.id,!(e.shiftKey||multi),e.shiftKey||multi);
 });
 
 /* ---------- CSV ---------- */
 $('csv').onclick=()=>{
-  if(!last||!last.sel.length){setStatus('No hay cubiertas seleccionadas para exportar.',true);return;}
-  const rows=[['opcion','id_osm','nombre','tipo','superficie_m2','kWp','MWh_anio','contenedores','ahorro_eur_anio','capex_eur','retorno_anios','lat','lon']];
-  for(const b of last.sel){const c=b.poly.getBounds().getCenter(),r=b.r;
-    rows.push([b.rank,b.id.slice(1),b.name,b.tags.building,b.area.toFixed(0),r.kWp.toFixed(1),r.Eyr.toFixed(1),r.N,r.tot.toFixed(0),r.capex.toFixed(0),r.pay.toFixed(1),c.lat.toFixed(6),c.lng.toFixed(6)]);}
+  const sel=ranked.filter(b=>b.sel);
+  if(!sel.length){setStatus('No hay cubiertas con FV marcadas para exportar.',true);return;}
+  const rows=[['opcion','id_osm','nombre','tipo','superficie_m2','area_paneles_m2','cobertura_pct','origen','kWp_existentes','base_estimacion','MWh_anio','excedente_MWh','contenedores','ahorro_bess_eur_anio','capex_bess_eur','retorno_anios','lat','lon']];
+  for(const b of sel){const r=b.r;
+    rows.push([b.rank,b.id.slice(1),b.name,b.tags.building,b.area.toFixed(0),(b.det?.area||0).toFixed(0),b.det?(b.det.cov*100).toFixed(1):'',b.ovr===true?'manual':b.osm?'osm':'ortofoto',
+      r.kWp.toFixed(0),b.kwHow,r.Eyr.toFixed(0),r.Esur.toFixed(0),r.N,r.tot.toFixed(0),r.capex.toFixed(0),r.pay.toFixed(1),b.c[0].toFixed(6),b.c[1].toFixed(6)]);}
   const txt=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+txt],{type:'text/csv'}));
-  a.download='cubiertas_fv.csv';a.click();
+  a.download='cubiertas_con_fv.csv';a.click();
 };
 
 /* ---------- Eventos ---------- */
-$('go').onclick=geocode; $('q').addEventListener('keydown',e=>{if(e.key==='Enter')geocode();});
+$('go').onclick=geocode;$('q').addEventListener('keydown',e=>{if(e.key==='Enter')geocode();});
 $('scan').onclick=scan;
-$('all').onclick=()=>{B.forEach(b=>b.sel=true);recompute();};
-$('none').onclick=()=>{B.forEach(b=>b.sel=false);recompute();};
-document.querySelectorAll('.params input,.params select').forEach(i=>i.addEventListener('input',recompute));
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change',restyle);
+$('all').onclick=()=>{ranked.forEach(b=>b.sel=true);recompute();};
+$('none').onclick=()=>{ranked.forEach(b=>b.sel=false);recompute();};
 $('multi').onclick=()=>{multi=!multi;$('multi').setAttribute('aria-pressed',multi);};
+['showAll','showDet'].forEach(id=>$(id).addEventListener('change',recompute));
+let deb;
+document.querySelectorAll('.params input,.params select').forEach(i=>i.addEventListener('input',()=>{
+  clearTimeout(deb);deb=setTimeout(()=>{if(i.id==='pK')B.forEach(detect);recompute();},150);
+}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&act.size&&!e.target.closest('input,select')){act.clear();recompute();}});
-// Evita que Mayús + arrastrar active el zoom por recuadro de Leaflet al hacer Mayús + clic
-map.boxZoom.disable();
-syncRkVisibility();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{B.forEach(b=>{if(b.det)b.det.url=null;});restyle();});
 recompute();
 </script>
 </body>
